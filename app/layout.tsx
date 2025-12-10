@@ -16,7 +16,7 @@ export const metadata: Metadata = {
   title: "JobTracker",
   description: "환영합니다",
   icons: {
-    icon: "/JobTracker.png"
+    icon: "/JobTracker.png"  //  '이미지: flaticon.com'
   }
 };
 
