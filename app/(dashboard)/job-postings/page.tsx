@@ -107,7 +107,7 @@ export default function JobPostingsPage() {
           </div>
 
           {/* 공고 등록 버튼 */}
-          <Link href="/job-postings/post">
+          <Link href="/job-postings/create">
             <Button
                 variant="primary"
                 size="md"
