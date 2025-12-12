@@ -1,4 +1,4 @@
-import React from "react";
+import Link from "next/link";
 import Button from "@/src/components/ui/Button";
 import FilterSelect from "@/src/components/ui/FilterSelect";
 
@@ -107,14 +107,16 @@ export default function JobPostingsPage() {
           </div>
 
           {/* 공고 등록 버튼 */}
-          <Button
-            variant="primary"
-            size="md"
-            className="rounded-full gap-1 shadow-sm"
-          >
-            <span className="text-sm">＋</span>
-            <span className="text-xs">공고 등록</span>
-          </Button>
+          <Link href="/job-postings/post">
+            <Button
+                variant="primary"
+                size="md"
+                className="rounded-full gap-1 shadow-sm"
+            >
+                <span className="text-sm">＋</span>
+                <span className="text-xs">공고 등록</span>
+            </Button>
+          </Link>
         </div>
 
         {/* 필터 카드 */}
