@@ -3,6 +3,9 @@ import bcrypt from "bcryptjs";
 import { connectToDatabase } from "@/src/lib/mongodb";
 import type { UserDocument } from "@/src/types/user";
 import { loginSchema, LoginInput } from "@/src/lib/validation/authSchemas";
+import type { AuthUser } from "@/src/lib/auth";
+
+const SESSION_COOKIE_NAME = "jobtracker_user";
 
 export async function POST(req: NextRequest) {
   try {
@@ -42,18 +45,28 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // TODO: 여기서 쿠키/세션 심을 수 있음
-    return NextResponse.json(
+    // 쿠키
+    const authUser: AuthUser = {
+      id: user._id?.toString() || "",
+      name: user.name,
+      email: user.email,
+    };
+    
+    const res = NextResponse.json(
       {
         message: "로그인에 성공했습니다.",
-        user: {
-          id: user._id?.toString(),
-          name: user.name,
-          email: user.email,
-        },
+        user: authUser,
       },
       { status: 200 }
     );
+
+    res.cookies.set(SESSION_COOKIE_NAME, JSON.stringify(authUser), {
+      httpOnly: true,
+      path: "/",
+      sameSite: "lax",
+    });
+
+    return res;
 
   } catch (error) {
     console.error("Login error:", error);
