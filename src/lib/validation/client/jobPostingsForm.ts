@@ -13,7 +13,14 @@ export const jobPostingFormSchema = z.object({
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/, "마감일 형식이 올바르지 않습니다.")
     .optional()
-    .or(z.literal("").transform(() => undefined)), // 빈 문자열 → undefined
+    .or(z.literal("").transform(() => undefined)),
+  source: z.string().optional(),
+  url: z
+    .string()
+    .url("올바른 URL 형식이 아닙니다.")
+    .optional()
+    .or(z.literal("").transform(() => undefined)),
+  memo: z.string().optional(),
 });
 
 export type JobPostingFormValues = z.infer<typeof jobPostingFormSchema>;

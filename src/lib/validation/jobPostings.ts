@@ -1,7 +1,6 @@
 import { z } from "zod";
 
 export const createJobPostingSchema = z.object({
-  companyId: z.string().optional(),
 
   title: z.string().min(1, "공고 제목은 필수입니다."),
   position: z.string().optional(),

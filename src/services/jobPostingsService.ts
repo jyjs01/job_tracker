@@ -38,7 +38,6 @@ export async function createJobPosting(input: CreateJobPostingInput) {
 
   const doc: JobPostingDocument = {
     userId: input.userId,
-    companyId: input.companyId,
     title: input.title,
     position: input.position,
     source: input.source,

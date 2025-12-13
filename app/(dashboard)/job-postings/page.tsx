@@ -1,97 +1,142 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import axios from "axios";
 import Link from "next/link";
 import Button from "@/src/components/ui/Button";
 import FilterSelect from "@/src/components/ui/FilterSelect";
 
 type JobPostingRow = {
-  id: number;
-  company: string;
-  companyInitial: string;
-  industry: string;
+  id: string;
   title: string;
-  position: string;
-  stacks: string[];
-  location: string;
-  dueDate: string;
-  statusLabel: string;
-  statusTone: "default" | "success" | "warning" | "danger";
+  position?: string;
+  employmentType?: string;
+  source?: string;
+  location?: string;
+  dueDate?: string;
 };
 
-const jobPostings: JobPostingRow[] = [
-  {
-    id: 1,
-    company: "네이버",
-    companyInitial: "N",
-    industry: "IT 서비스",
-    title: "프론트엔드 개발자",
-    position: "React, TypeScript 경험자",
-    stacks: ["React", "TypeScript"],
-    location: "판교",
-    dueDate: "2025-01-15",
-    statusLabel: "서류 합격",
-    statusTone: "success",
-  },
-  {
-    id: 2,
-    company: "카카오",
-    companyInitial: "K",
-    industry: "IT 서비스",
-    title: "백엔드 개발자",
-    position: "Java, Spring 기반",
-    stacks: ["Java", "Spring"],
-    location: "성남",
-    dueDate: "2025-01-10",
-    statusLabel: "지원 완료",
-    statusTone: "default",
-  },
-  {
-    id: 3,
-    company: "라인",
-    companyInitial: "L",
-    industry: "메신저 서비스",
-    title: "데이터 엔지니어",
-    position: "Python, Spark 경험",
-    stacks: ["Python", "Spark"],
-    location: "강남",
-    dueDate: "2025-01-20",
-    statusLabel: "면접 예정",
-    statusTone: "warning",
-  },
-  {
-    id: 4,
-    company: "토스",
-    companyInitial: "T",
-    industry: "핀테크",
-    title: "풀스택 개발자",
-    position: "React, Node.js",
-    stacks: ["React", "Node.js"],
-    location: "선릉",
-    dueDate: "2025-01-05",
-    statusLabel: "불합격",
-    statusTone: "danger",
-  },
-  {
-    id: 5,
-    company: "배달의민족",
-    companyInitial: "B",
-    industry: "O2O 서비스",
-    title: "모바일 개발자",
-    position: "iOS, Swift 경험",
-    stacks: ["iOS", "Swift"],
-    location: "을지로",
-    dueDate: "2025-01-25",
-    statusLabel: "관련 없음",
-    statusTone: "default",
-  },
-];
+type DeadlineFilter = "전체" | "마감 지남" | "마감 임박" | "여유 있음";
+type SourceFilter =
+  | "전체"
+  | "사람인"
+  | "잡코리아"
+  | "회사 채용 홈페이지";
 
-const statusToneClass: Record<JobPostingRow["statusTone"], string> = {
-  default: "border-slate-200 bg-slate-50 text-slate-600",
-  success: "border-emerald-100 bg-emerald-50 text-emerald-700",
-  warning: "border-amber-100 bg-amber-50 text-amber-700",
-  danger: "border-rose-100 bg-rose-50 text-rose-700",
-};
+function formatDate(value?: string) {
+
+  if (!value) return "-";
+
+  const d = new Date(value);
+
+  if (Number.isNaN(d.getTime())) return "-";
+  return d.toISOString().slice(0, 10);
+}
+
+function getDeadlineStatus(dueDate?: string): DeadlineFilter | "없음" {
+
+  if (!dueDate) return "없음";
+
+  const date = new Date(dueDate);
+  if (Number.isNaN(date.getTime())) return "없음";
+
+  const today = new Date();
+
+  const startOfToday = new Date(
+    today.getFullYear(),
+    today.getMonth(),
+    today.getDate()
+  );
+
+  const targetDate = new Date(
+    date.getFullYear(),
+    date.getMonth(),
+    date.getDate()
+  );
+
+  const diffMs = targetDate.getTime() - startOfToday.getTime();
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+  if (diffDays < 0) return "마감 지남";
+  if (diffDays <= 7) return "마감 임박";
+  return "여유 있음";
+}
 
 export default function JobPostingsPage() {
+  const [jobPostings, setJobPostings] = useState<JobPostingRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [deadlineFilter, setDeadlineFilter] = useState<DeadlineFilter>("전체");
+  const [sourceFilter, setSourceFilter] = useState<SourceFilter>("전체");
+  const [page, setPage] = useState(1);
+  const pageSize = 5;
+
+  useEffect(() => {
+    const fetchJobPostings = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        const res = await axios.get("/api/job-postings");
+        const data = (res.data?.data ?? []) as JobPostingRow[];
+
+        setJobPostings(data);
+      } catch (err) {
+        console.error("채용 공고 불러오기 오류:", err);
+        setError("채용 공고를 불러오는 중 오류가 발생했습니다.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchJobPostings();
+  }, []);
+
+  // 필터가 바뀔 때는 무조건 1페이지로 이동
+  useEffect(() => {
+    setPage(1);
+  }, [deadlineFilter, sourceFilter, jobPostings.length]);
+
+  const handleResetFilters = () => {
+    setDeadlineFilter("전체");
+    setSourceFilter("전체");
+  };
+
+  const filteredJobPostings = jobPostings.filter((job) => {
+    // 마감일 필터
+    if (deadlineFilter !== "전체") {
+      const status = getDeadlineStatus(job.dueDate);
+      if (status !== deadlineFilter) {
+        return false;
+      }
+    }
+
+    // 소스 필터
+    if (sourceFilter !== "전체") {
+      if (!job.source) return false;
+      if (job.source !== sourceFilter) return false;
+    }
+
+    return true;
+  });
+
+  const total = filteredJobPostings.length;
+  const totalPages = total === 0 ? 1 : Math.ceil(total / pageSize);
+  const currentPage = Math.min(page, totalPages);
+
+  const startIndex = (currentPage - 1) * pageSize;
+  const endIndex = Math.min(startIndex + pageSize, total);
+
+  const paginatedJobPostings = filteredJobPostings.slice(
+    startIndex,
+    endIndex
+  );
+
+  const pagesToShow = Array.from(
+    { length: Math.min(totalPages, 3) },
+    (_, i) => i + 1
+  );
+
   return (
     <div className="px-6 py-6 md:px-8">
       <div className="mx-auto max-w-6xl space-y-6">
@@ -109,12 +154,12 @@ export default function JobPostingsPage() {
           {/* 공고 등록 버튼 */}
           <Link href="/job-postings/create">
             <Button
-                variant="primary"
-                size="md"
-                className="rounded-full gap-1 shadow-sm"
+              variant="primary"
+              size="md"
+              className="gap-1 rounded-full shadow-sm"
             >
-                <span className="text-sm">＋</span>
-                <span className="text-xs">공고 등록</span>
+              <span className="text-sm">＋</span>
+              <span className="text-xs">공고 등록</span>
             </Button>
           </Link>
         </div>
@@ -123,38 +168,47 @@ export default function JobPostingsPage() {
         <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
           <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
             <h2 className="text-sm font-semibold text-slate-900">필터</h2>
-            <Button variant="text" size="sm" className="text-[11px]">
+            <Button
+              variant="text"
+              size="sm"
+              className="text-[11px]"
+              type="button"
+              onClick={handleResetFilters}
+            >
               초기화
             </Button>
           </div>
 
-          <div className="grid gap-4 px-6 py-4 md:grid-cols-3">
+          <div className="grid gap-4 px-6 py-4 md:grid-cols-2">
             <div className="space-y-1">
-              <FilterSelect label="마감일 상태" defaultValue="전체">
-                <option>전체</option>
-                <option>마감 지남</option>
-                <option>마감 임박</option>
-                <option>여유 있음</option>
+              <FilterSelect
+                label="마감일 상태"
+                value={deadlineFilter}
+                onChange={(e) =>
+                  setDeadlineFilter(e.target.value as DeadlineFilter)
+                }
+              >
+                <option value="전체">전체</option>
+                <option value="마감 지남">마감 지남</option>
+                <option value="마감 임박">마감 임박</option>
+                <option value="여유 있음">여유 있음</option>
               </FilterSelect>
             </div>
 
             <div className="space-y-1">
-              <FilterSelect label="소스" defaultValue="전체">
-                <option>전체</option>
-                <option>공식 홈페이지</option>
-                <option>채용 플랫폼</option>
-                <option>지인 추천</option>
-              </FilterSelect>
-            </div>
-
-            <div className="space-y-1">
-              <FilterSelect label="지원 상태" defaultValue="전체">
-                <option>전체</option>
-                <option>지원 전</option>
-                <option>지원 완료</option>
-                <option>서류 합격</option>
-                <option>면접 예정</option>
-                <option>불합격</option>
+              <FilterSelect
+                label="소스"
+                value={sourceFilter}
+                onChange={(e) =>
+                  setSourceFilter(e.target.value as SourceFilter)
+                }
+              >
+                <option value="전체">전체</option>
+                <option value="사람인">사람인</option>
+                <option value="잡코리아">잡코리아</option>
+                <option value="회사 채용 홈페이지">
+                  회사 채용 홈페이지
+                </option>
               </FilterSelect>
             </div>
           </div>
@@ -172,144 +226,145 @@ export default function JobPostingsPage() {
               </p>
             </div>
             <p className="text-[11px] text-slate-400">
-              총 {jobPostings.length}개 공고
+              총 {total}개 공고
             </p>
           </div>
 
-          {/* 테이블 헤더 */}
-          <div className="hidden items-center px-6 py-3 text-[11px] font-medium text-slate-400 lg:flex">
-            <div className="flex-[1.6]">회사명</div>
-            <div className="flex-[1.8]">포지션</div>
-            <div className="flex-[1.4]">기술 스택</div>
-            <div className="flex-1">근무지</div>
-            <div className="flex-1">마감일</div>
-            <div className="flex-1">지원 상태</div>
-            <div className="w-8 text-right" />
-          </div>
+          {loading ? (
+            <div className="px-6 py-10 text-center text-xs text-slate-400">
+              채용 공고를 불러오는 중입니다...
+            </div>
+          ) : error ? (
+            <div className="px-6 py-10 text-center text-xs text-rose-500">
+              {error}
+            </div>
+          ) : total === 0 ? (
+            <div className="px-6 py-10 text-center text-xs text-slate-400">
+              조건에 맞는 채용 공고가 없습니다.
+              <br />
+              필터를 변경하거나 오른쪽 상단의{" "}
+              <span className="font-semibold">공고 등록</span> 버튼으로
+              새 공고를 추가해 보세요.
+            </div>
+          ) : (
+            <>
+              {/* 테이블 헤더 */}
+              <div className="hidden items-center px-6 py-3 text-[11px] font-medium text-slate-400 lg:flex">
+                <div className="flex-[2]">공고 제목</div>
+                <div className="flex-[1.4]">직무 / 고용 형태</div>
+                <div className="flex-[1.2]">소스</div>
+                <div className="flex-1">근무지</div>
+                <div className="flex-1">마감일</div>
+                <div className="w-8 text-right" />
+              </div>
 
-          {/* 채용 공고 */}
-          <div>
-            {jobPostings.map((job) => (
-              <div
-                key={job.id}
-                className="flex flex-col border-t border-slate-100 px-4 py-3 text-xs text-slate-700 hover:bg-slate-50 lg:flex-row lg:items-center lg:px-6"
-              >
-                {/* 회사 */}
-                <div className="flex flex-1 items-start gap-3 lg:flex-[1.6]">
-                  <div className="mt-0.5 flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-[11px] font-semibold text-slate-600">
-                    {job.companyInitial}
-                  </div>
-                  <div className="flex flex-col">
-                    <span className="text-xs font-medium text-slate-900">
-                      {job.company}
-                    </span>
-                    <span className="mt-0.5 text-[11px] text-slate-400">
-                      {job.industry}
-                    </span>
-                  </div>
-                </div>
+              {/* 채용 공고 리스트 (페이지 적용) */}
+              <div>
+                {paginatedJobPostings.map((job) => (
+                  <div
+                    key={job.id}
+                    className="flex flex-col border-t border-slate-100 px-4 py-3 text-xs text-slate-700 hover:bg-slate-50 lg:flex-row lg:items-center lg:px-6"
+                  >
+                    {/* 공고 제목 */}
+                    <div className="flex-[2]">
+                      <p className="text-xs font-medium text-slate-900">
+                        {job.title}
+                      </p>
+                    </div>
 
-                {/* 포지션 */}
-                <div className="mt-2 flex-1 lg:mt-0 lg:flex-[1.8]">
-                  <p className="text-xs font-medium text-slate-900">
-                    {job.title}
-                  </p>
-                  <p className="mt-0.5 text-[11px] text-slate-400">
-                    {job.position}
-                  </p>
-                </div>
+                    {/* 직무 / 고용 형태 */}
+                    <div className="mt-2 flex-[1.4] lg:mt-0">
+                      <p className="text-[11px] text-slate-500">
+                        {job.position || "-"}
+                      </p>
+                      <p className="mt-0.5 text-[11px] text-slate-400">
+                        {job.employmentType || "고용 형태 미기입"}
+                      </p>
+                    </div>
 
-                {/* 스택 */}
-                <div className="mt-2 flex-1 lg:mt-0 lg:flex-[1.4]">
-                  <div className="flex flex-wrap gap-1">
-                    {job.stacks.map((stack) => (
-                      <span
-                        key={stack}
-                        className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] text-slate-600"
+                    {/* 소스 */}
+                    <div className="mt-2 flex-[1.2] text-[11px] text-slate-500 lg:mt-0">
+                      {job.source || "-"}
+                    </div>
+
+                    {/* 근무지 */}
+                    <div className="mt-2 flex-1 text-[11px] text-slate-500 lg:mt-0">
+                      {job.location || "-"}
+                    </div>
+
+                    {/* 마감일 */}
+                    <div className="mt-1 flex-1 text-[11px] text-slate-500 lg:mt-0">
+                      {job.dueDate ? formatDate(job.dueDate) : "-"}
+                    </div>
+
+                    {/* 보기 버튼 (나중에 상세 페이지 연결용) */}
+                    <div className="mt-2 flex w-full justify-end lg:mt-0 lg:w-auto lg:text-right">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 rounded-full px-2 text-[11px] text-slate-500 hover:text-slate-700 whitespace-nowrap"
+                        aria-label="공고 상세 보기"
                       >
-                        {stack}
-                      </span>
-                    ))}
+                        <span>상세</span>
+                        <span className="ml-1 text-xs">›</span>
+                      </Button>
+                    </div>
                   </div>
-                </div>
+                ))}
+              </div>
 
-                {/* 근무지 */}
-                <div className="mt-2 flex-1 text-[11px] text-slate-500 lg:mt-0 lg:flex-1">
-                  {job.location}
-                </div>
-
-                {/* 마감일 */}
-                <div className="mt-1 flex-1 text-[11px] text-slate-500 lg:mt-0 lg:flex-1">
-                  {job.dueDate}
-                </div>
-
-                {/* 상태 */}
-                <div className="mt-2 flex-1 lg:mt-0 lg:flex-1">
-                  <span
-                    className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium ${statusToneClass[job.statusTone]}`}
-                  >
-                    {job.statusLabel}
-                  </span>
-                </div>
-
-                {/* 보기 아이콘 버튼 */}
-                <div className="mt-2 flex w-full justify-end lg:mt-0 lg:w-auto lg:text-right">
+              {/* 하단 페이징 */}
+              <div className="flex items-center justify-between border-t border-slate-100 px-4 py-3 text-[11px] text-slate-400 lg:px-6">
+                <p>
+                  {startIndex + 1}-{endIndex} of {total} results
+                </p>
+                <div className="flex items-center gap-1">
                   <Button
-                    type="button"
-                    variant="ghost"
+                    variant="outline"
                     size="sm"
-                    className="h-7 w-8 rounded-full p-0 text-sm text-slate-400 hover:text-slate-600 whitespace-nowrap"
-                    aria-label="공고 상세 보기"
+                    className="h-7 w-7 rounded-md px-0 text-xs"
+                    type="button"
+                    disabled={currentPage === 1}
+                    onClick={() =>
+                      setPage((prev) => Math.max(1, prev - 1))
+                    }
                   >
-                    <span>상세</span>
-                    <span className="ml-2 text-xs">›</span>
+                    ‹
+                  </Button>
+
+                  {pagesToShow.map((p) => (
+                    <Button
+                      key={p}
+                      variant={p === currentPage ? "primary" : "outline"}
+                      size="sm"
+                      className="h-7 w-7 rounded-md px-0 text-xs"
+                      type="button"
+                      disabled={p === currentPage}
+                      onClick={() => setPage(p)}
+                    >
+                      {p}
+                    </Button>
+                  ))}
+
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 w-7 rounded-md px-0 text-xs"
+                    type="button"
+                    disabled={currentPage === totalPages}
+                    onClick={() =>
+                      setPage((prev) =>
+                        Math.min(totalPages, prev + 1)
+                      )
+                    }
+                  >
+                    ›
                   </Button>
                 </div>
               </div>
-            ))}
-          </div>
-
-          {/* 하단 페이징 */}
-          <div className="flex items-center justify-between border-t border-slate-100 px-4 py-3 text-[11px] text-slate-400 lg:px-6">
-            <p>1-5 of 24 results</p>
-            <div className="flex items-center gap-1">
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-7 w-7 rounded-md px-0 text-xs"
-              >
-                ‹
-              </Button>
-              <Button
-                variant="primary"
-                size="sm"
-                className="h-7 w-7 rounded-md px-0 text-xs"
-              >
-                1
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-7 w-7 rounded-md px-0 text-xs text-slate-600"
-              >
-                2
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-7 w-7 rounded-md px-0 text-xs text-slate-600"
-              >
-                3
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-7 w-7 rounded-md px-0 text-xs"
-              >
-                ›
-              </Button>
-            </div>
-          </div>
+            </>
+          )}
         </section>
       </div>
     </div>

@@ -46,6 +46,9 @@ export default function JobPostingCreatePage() {
         benefits:
           (formData.get("benefits") as string | null)?.trim() || "",
         dueDate: (formData.get("dueDate") as string | null) || undefined,
+        source: (formData.get("source") as string | null)?.trim() || "",
+        url: (formData.get("url") as string | null)?.trim() || "",
+        memo: (formData.get("memo") as string | null)?.trim() || "",
       };
 
       // 클라이언트 유효성 검사
@@ -80,6 +83,9 @@ export default function JobPostingCreatePage() {
         preferred: parsed.data.preferred || undefined,
         benefits: parsed.data.benefits || undefined,
         dueDate: parsed.data.dueDate || undefined,
+        source: parsed.data.source || undefined,
+        url: parsed.data.url || undefined,
+        memo: parsed.data.memo || undefined,
       };
 
       await axios.post("/api/job-postings", payload);
@@ -232,6 +238,33 @@ export default function JobPostingCreatePage() {
                     <p className="mt-1 text-[11px] text-rose-500">
                       {errors.location}
                     </p>
+                  )}
+                </div>
+              </div>
+
+              {/* 공고 소스 / 공고 URL */}
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-slate-700">
+                    공고 소스
+                  </label>
+                  <Input
+                    name="source"
+                    placeholder="예: 사람인, 잡코리아, 회사 채용 홈페이지"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-slate-700">
+                    공고 URL
+                  </label>
+                  <Input
+                    name="url"
+                    placeholder="예: https://company.com/careers/123"
+                  />
+                  {/* url 검증 에러가 있을 때만 보여주기 (선택) */}
+                  {errors.url && (
+                    <p className="mt-1 text-[11px] text-rose-500">{errors.url}</p>
                   )}
                 </div>
               </div>
@@ -389,6 +422,24 @@ export default function JobPostingCreatePage() {
                   </label>
                 </div>
               </div>
+            </div>
+          </section>
+
+          {/* 메모 카드 */}
+          <section className="space-y-4 rounded-2xl border border-slate-200 bg-white px-6 py-5 shadow-sm">
+            <div>
+              <h2 className="text-sm font-semibold text-slate-900">메모</h2>
+              <p className="mt-1 text-[11px] text-slate-500">
+                이 공고에 대해 개인적으로 남겨두고 싶은 메모가 있다면 적어주세요.
+              </p>
+            </div>
+
+            <div className="space-y-1">
+              <textarea
+                name="memo"
+                className="min-h-24 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none placeholder:text-slate-500 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                placeholder="예: 코딩테스트 있음 / 포트폴리오 필수 / 면접 예상 질문 정리 필요 등"
+              />
             </div>
           </section>
 

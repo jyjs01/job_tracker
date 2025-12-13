@@ -3,7 +3,6 @@ import { ObjectId } from "mongodb";
 export type JobPostingDocument = {
   _id?: ObjectId;
   userId: string;
-  companyId?: string;
 
   title: string;
   position?: string;

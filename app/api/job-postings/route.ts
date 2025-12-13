@@ -4,12 +4,18 @@ import { createJobPostingSchema } from "@/src/lib/validation/jobPostings";
 import { getCurrentUser } from "@/src/lib/auth";
 
 // 채용 공고 불러오기
-export async function GET(request: Request) {
+export async function GET() {
   try {
-    const { searchParams } = new URL(request.url);
-    const userId = searchParams.get("userId") ?? undefined;
+    const user = await getCurrentUser();
 
-    const data = await listJobPostings({ userId });
+    if (!user) {
+      return NextResponse.json(
+        { error: "로그인이 필요합니다." },
+        { status: 401 }
+      );
+    }
+
+    const data = await listJobPostings({ userId: user.id });
 
     return NextResponse.json({ data });
   } catch (error) {
