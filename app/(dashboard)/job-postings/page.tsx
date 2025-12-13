@@ -250,7 +250,7 @@ export default function JobPostingsPage() {
             <>
               {/* 테이블 헤더 */}
               <div className="hidden items-center px-6 py-3 text-[11px] font-medium text-slate-400 lg:flex">
-                <div className="flex-[2]">공고 제목</div>
+                <div className="flex-2">공고 제목</div>
                 <div className="flex-[1.4]">직무 / 고용 형태</div>
                 <div className="flex-[1.2]">소스</div>
                 <div className="flex-1">근무지</div>
@@ -266,7 +266,7 @@ export default function JobPostingsPage() {
                     className="flex flex-col border-t border-slate-100 px-4 py-3 text-xs text-slate-700 hover:bg-slate-50 lg:flex-row lg:items-center lg:px-6"
                   >
                     {/* 공고 제목 */}
-                    <div className="flex-[2]">
+                    <div className="flex-2">
                       <p className="text-xs font-medium text-slate-900">
                         {job.title}
                       </p>
@@ -297,18 +297,20 @@ export default function JobPostingsPage() {
                       {job.dueDate ? formatDate(job.dueDate) : "-"}
                     </div>
 
-                    {/* 보기 버튼 (나중에 상세 페이지 연결용) */}
+                    {/* 보기 버튼 */}
                     <div className="mt-2 flex w-full justify-end lg:mt-0 lg:w-auto lg:text-right">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 rounded-full px-2 text-[11px] text-slate-500 hover:text-slate-700 whitespace-nowrap"
-                        aria-label="공고 상세 보기"
-                      >
-                        <span>상세</span>
-                        <span className="ml-1 text-xs">›</span>
-                      </Button>
+                      <Link href="/job-postings/1">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 rounded-full px-2 text-[11px] text-slate-500 hover:text-slate-700 whitespace-nowrap"
+                          aria-label="공고 상세 보기"
+                        >
+                          <span>상세</span>
+                          <span className="ml-1 text-xs">›</span>
+                        </Button>
+                      </Link>
                     </div>
                   </div>
                 ))}
