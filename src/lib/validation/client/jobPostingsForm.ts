@@ -9,6 +9,8 @@ export const jobPostingFormSchema = z.object({
   requirements: z.string().min(1, "지원 요건을 입력해주세요."),
   preferred: z.string().optional(),
   benefits: z.string().optional(),
+  career: z.string().optional(),
+  salary: z.string().optional(),
   dueDate: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/, "마감일 형식이 올바르지 않습니다.")

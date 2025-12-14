@@ -62,14 +62,14 @@ export default function JobPostingDetailPage() {
 
   const title = jobPosting?.title ?? "채용 공고 상세";
   const dueDateText = formatDate(jobPosting?.dueDate);
-  const createdAtText = formatDate(jobPosting?.createdAt);
   const employmentTypeText = jobPosting?.employmentType ?? "-";
   const locationText = jobPosting?.location ?? "-";
   const sourceText = jobPosting?.source ?? "소스 미기입";
   const positionText = jobPosting?.position ?? "포지션 미기입";
-  const memoText =
-    jobPosting?.memo ??
-    "아직 메모가 없습니다. 나중에 이 공고에 대한 메모를 남겨보세요.";
+  const memoText = jobPosting?.memo ?? "아직 메모가 없습니다. 나중에 이 공고에 대한 메모를 남겨보세요.";
+  const careerText = jobPosting?.career ?? "-";
+  const salaryText = jobPosting?.salary ?? "-";
+  const createdAtText = formatDate(jobPosting?.createdAt);
 
   const hasDetailSections =
     !!jobPosting?.responsibilities ||
@@ -77,10 +77,12 @@ export default function JobPostingDetailPage() {
     !!jobPosting?.preferred ||
     !!jobPosting?.benefits;
 
+  const hasRecruitInfo =
+    !!jobPosting?.career || !!jobPosting?.salary || !!jobPosting?.dueDate;
+
   return (
     <div className="px-6 py-6 md:px-8">
       <div className="mx-auto max-w-6xl space-y-4">
-        {/* 브레드크럼 */}
         <div className="flex items-center gap-2 text-[11px] text-slate-400">
           <Link href="/job-postings" className="hover:text-slate-600">
             채용 공고
@@ -100,6 +102,7 @@ export default function JobPostingDetailPage() {
 
         {/* 메인 레이아웃: 왼쪽 section / 오른쪽 aside */}
         <div className="flex flex-col gap-4 md:flex-row md:items-start">
+
           {/* ================== SECTION ================== */}
           <section className="flex-1 space-y-4">
             {/* 기본 정보 박스 */}
@@ -235,6 +238,47 @@ export default function JobPostingDetailPage() {
               </div>
             )}
 
+            {/* 모집 조건 */}
+            {!loading && hasRecruitInfo && (
+              <div className="space-y-4 rounded-2xl border border-slate-200 bg-white px-6 py-5 shadow-sm">
+                <h2 className="text-sm font-semibold text-slate-900">
+                  모집 조건
+                </h2>
+
+                <div className="grid gap-4 md:grid-cols-2 text-[11px] text-slate-500">
+                  <div className="space-y-3">
+                    <div>
+                      <p className="text-slate-400">경력</p>
+                      <p className="mt-0.5 text-xs text-slate-800">
+                        {careerText}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-slate-400">급여 정보</p>
+                      <p className="mt-0.5 text-xs text-slate-800">
+                        {salaryText}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div>
+                      <p className="text-slate-400">등록일</p>
+                      <p className="mt-0.5 text-xs text-slate-800">
+                        {createdAtText}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-slate-400">마감일</p>
+                      <p className="mt-0.5 text-xs text-slate-800">
+                        {dueDateText}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* 지원 이력 박스 (목 데이터) */}
             <div className="space-y-4 rounded-2xl border border-slate-200 bg-white px-6 py-5 shadow-sm">
               <div className="flex items-center justify-between">
@@ -349,15 +393,17 @@ export default function JobPostingDetailPage() {
               </h2>
 
               <div className="space-y-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="flex w-full justify-start gap-2 text-[11px]"
-                >
-                  <span>📄</span>
-                  <span>공고 정보 수정</span>
-                </Button>
+                <Link href={`/job-postings/${id}/update`}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="mb-2 flex w-full justify-start gap-2 text-[11px]"
+                  >
+                    <span>📄</span>
+                    <span>공고 정보 수정</span>
+                  </Button>
+                </Link>
                 <Button
                   type="button"
                   variant="outline"

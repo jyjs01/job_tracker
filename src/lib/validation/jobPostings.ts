@@ -6,6 +6,8 @@ export const createJobPostingSchema = z.object({
   position: z.string().optional(),
   source: z.string().optional(),
   url: z.string().url("URL 형식이 올바르지 않습니다.").optional(),
+  career: z.string().optional(),
+  salary: z.string().optional(),
 
   dueDate: z
     .string()

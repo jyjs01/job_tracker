@@ -20,7 +20,7 @@ export default function JobPostingCreatePage() {
   );
 
   const handleCancel = () => {
-    router.replace("/job-postings");
+    router.back();
   };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -36,6 +36,7 @@ export default function JobPostingCreatePage() {
         title: (formData.get("title") as string | null)?.trim() ?? "",
         jobCategory: (formData.get("jobCategory") as string | null) ?? "",
         employmentType: (formData.get("employmentType") as string | null) ?? "",
+        career: (formData.get("career") as string | null)?.trim() ?? "",
         location: (formData.get("location") as string | null)?.trim() ?? "",
         responsibilities:
           (formData.get("responsibilities") as string | null)?.trim() ?? "",
@@ -48,6 +49,7 @@ export default function JobPostingCreatePage() {
         dueDate: (formData.get("dueDate") as string | null) || undefined,
         source: (formData.get("source") as string | null)?.trim() || "",
         url: (formData.get("url") as string | null)?.trim() || "",
+        salary: (formData.get("salary") as string | null)?.trim() ?? "",
         memo: (formData.get("memo") as string | null)?.trim() || "",
       };
 
@@ -78,6 +80,8 @@ export default function JobPostingCreatePage() {
         position: parsed.data.jobCategory,
         employmentType: parsed.data.employmentType,
         location: parsed.data.location,
+        career: parsed.data.career || undefined,
+        salary: parsed.data.salary || undefined,
         responsibilities: parsed.data.responsibilities,
         requirements: parsed.data.requirements,
         preferred: parsed.data.preferred || undefined,
@@ -202,6 +206,7 @@ export default function JobPostingCreatePage() {
                   <option>경력 1~3년</option>
                   <option>경력 3~5년</option>
                   <option>경력 5년 이상</option>
+                  <option>경력 무관</option>
                 </FilterSelect>
               </div>
 
@@ -348,29 +353,20 @@ export default function JobPostingCreatePage() {
             <div>
               <h2 className="text-sm font-semibold text-slate-900">모집 조건</h2>
               <p className="mt-1 text-[11px] text-slate-500">
-                모집 인원, 급여, 진행 기간 등을 설정해주세요.
+                급여, 진행 기간 등을 설정해주세요.
               </p>
             </div>
 
             <div className="space-y-4">
-              {/* 모집 인원 / 급여 정보 */}
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-1">
-                  <label className="text-xs font-medium text-slate-700">
-                    모집 인원 <span className="text-rose-500">*</span>
-                  </label>
-                  <Input type="number" min={1} placeholder="1" name="headcount" />
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-xs font-medium text-slate-700">
-                    급여 정보
-                  </label>
-                  <Input
-                    name="salary"
-                    placeholder="예: 연봉 4,000만원 ~ 6,000만원"
-                  />
-                </div>
+              {/* 급여 정보 */}
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-slate-700">
+                  급여 정보
+                </label>
+                <Input
+                  name="salary"
+                  placeholder="예: 연봉 4,000만원 ~ 6,000만원"
+                />
               </div>
 
               {/* 시작일 / 마감일 */}
@@ -392,34 +388,6 @@ export default function JobPostingCreatePage() {
                       {errors.dueDate}
                     </p>
                   )}
-                </div>
-              </div>
-
-              {/* 진행 상태 */}
-              <div className="space-y-2">
-                <p className="text-xs font-medium text-slate-700">
-                  진행 상태 <span className="text-rose-500">*</span>
-                </p>
-                <div className="flex flex-wrap gap-4 text-xs text-slate-700">
-                  <label className="inline-flex items-center gap-1">
-                    <input
-                      type="radio"
-                      name="publishStatus"
-                      value="publish"
-                      className="h-3.5 w-3.5 border-slate-300 text-slate-900 focus:ring-blue-500"
-                      defaultChecked
-                    />
-                    <span>즉시 공개</span>
-                  </label>
-                  <label className="inline-flex items-center gap-1">
-                    <input
-                      type="radio"
-                      name="publishStatus"
-                      value="draft"
-                      className="h-3.5 w-3.5 border-slate-300 text-slate-900 focus:ring-blue-500"
-                    />
-                    <span>임시 저장</span>
-                  </label>
                 </div>
               </div>
             </div>

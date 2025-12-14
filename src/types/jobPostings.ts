@@ -11,6 +11,8 @@ export type JobPostingDocument = {
   dueDate?: Date | string;
   employmentType?: string;
   location?: string;
+  career?: string;
+  salary?: string;
 
   responsibilities?: string;
   requirements?: string;
