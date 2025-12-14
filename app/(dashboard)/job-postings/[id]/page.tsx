@@ -1,90 +1,241 @@
-// app/(dashboard)/job-postings/[id]/page.tsx
+"use client";
+
+import { useEffect, useState } from "react";
+import { useParams } from "next/navigation";
+import axios from "axios";
 import Link from "next/link";
 import Button from "@/src/components/ui/Button";
+import type { JobPostingDocument } from "@/src/types/jobPostings";
 
-type JobPostingDetailPageProps = {
-  params: {
-    id: string;
-  };
+type JobPostingWithId = JobPostingDocument & {
+  id: string;
 };
 
-export default function JobPostingDetailPage({
-  params,
-}: JobPostingDetailPageProps) {
-//   const { id } = params;
+function formatDate(value?: string | Date) {
+  if (!value) return "-";
+  const d = typeof value === "string" ? new Date(value) : value;
+  if (Number.isNaN(d.getTime())) return "-";
+  return d.toISOString().slice(0, 10);
+}
 
-  // TODO: id 기반 실제 데이터 연동
+export default function JobPostingDetailPage() {
+  const params = useParams<{ id: string }>();
+  const id = params?.id;
+
+  const [jobPosting, setJobPosting] = useState<JobPostingWithId | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!id || id === "undefined") {
+      setError("올바르지 않은 채용 공고 주소입니다.");
+      setLoading(false);
+      return;
+    }
+
+    const fetchJobPosting = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        const res = await axios.get(`/api/job-postings/${id}`);
+        const data = res.data?.data as JobPostingWithId | undefined;
+
+        if (!data) {
+          setError("채용 공고 정보를 찾을 수 없습니다.");
+          setJobPosting(null);
+          return;
+        }
+
+        setJobPosting(data);
+      } catch (err) {
+        console.error("채용 공고 상세 불러오기 오류:", err);
+        setError("채용 공고를 불러오는 중 오류가 발생했습니다.");
+        setJobPosting(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchJobPosting();
+  }, [id]);
+
+  const title = jobPosting?.title ?? "채용 공고 상세";
+  const dueDateText = formatDate(jobPosting?.dueDate);
+  const createdAtText = formatDate(jobPosting?.createdAt);
+  const employmentTypeText = jobPosting?.employmentType ?? "-";
+  const locationText = jobPosting?.location ?? "-";
+  const sourceText = jobPosting?.source ?? "소스 미기입";
+  const positionText = jobPosting?.position ?? "포지션 미기입";
+  const memoText =
+    jobPosting?.memo ??
+    "아직 메모가 없습니다. 나중에 이 공고에 대한 메모를 남겨보세요.";
+
+  const hasDetailSections =
+    !!jobPosting?.responsibilities ||
+    !!jobPosting?.requirements ||
+    !!jobPosting?.preferred ||
+    !!jobPosting?.benefits;
 
   return (
     <div className="px-6 py-6 md:px-8">
       <div className="mx-auto max-w-6xl space-y-4">
+        {/* 브레드크럼 */}
         <div className="flex items-center gap-2 text-[11px] text-slate-400">
           <Link href="/job-postings" className="hover:text-slate-600">
             채용 공고
           </Link>
           <span>›</span>
           <span className="text-slate-500">
-            Frontend Developer - TechCorp
+            {loading ? "불러오는 중..." : title}
           </span>
         </div>
 
+        {/* 에러 메시지 */}
+        {error && (
+          <div className="rounded-xl border border-rose-100 bg-rose-50 px-4 py-3 text-xs text-rose-600">
+            {error}
+          </div>
+        )}
+
+        {/* 메인 레이아웃: 왼쪽 section / 오른쪽 aside */}
         <div className="flex flex-col gap-4 md:flex-row md:items-start">
+          {/* ================== SECTION ================== */}
           <section className="flex-1 space-y-4">
             {/* 기본 정보 박스 */}
             <div className="space-y-4 rounded-2xl border border-slate-200 bg-white px-6 py-5 shadow-sm">
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <h1 className="text-lg font-semibold text-slate-900">
-                    Frontend Developer
+                    {loading ? "채용 공고 불러오는 중..." : title}
                   </h1>
-                  <p className="mt-1 text-xs text-slate-500">
-                    TechCorp Inc.
-                  </p>
+                  {!loading && (
+                    <p className="mt-1 text-xs text-slate-500">
+                      {positionText}
+                    </p>
+                  )}
                 </div>
 
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="text-[11px]"
-                >
-                  공고 보기
-                </Button>
+                {/* 공고 보기 버튼 (URL 있을 때만 노출) */}
+                {jobPosting?.url && (
+                  <Link href={jobPosting.url} target="_blank">
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="text-[11px]"
+                    >
+                      공고 보기
+                    </Button>
+                  </Link>
+                )}
               </div>
 
-              <div className="grid gap-6 md:grid-cols-2">
-                {/* 메타 정보 */}
-                <div className="space-y-3 text-[11px] text-slate-500">
-                  <div>
-                    <p className="text-slate-400">마감일</p>
-                    <p className="mt-0.5 text-xs text-slate-800">
-                      2025-02-15
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-slate-400">근무 형태</p>
-                    <p className="mt-0.5 text-xs text-slate-800">정규직</p>
-                  </div>
-                  <div>
-                    <p className="text-slate-400">위치</p>
-                    <p className="mt-0.5 text-xs text-slate-800">
-                      서울 강남구
-                    </p>
-                  </div>
-                </div>
+              {loading ? (
+                <p className="text-[11px] text-slate-400">
+                  기본 정보를 불러오는 중입니다...
+                </p>
+              ) : (
+                <div className="space-y-4">
+                  {/* 메타 정보 */}
+                  <div className="grid gap-6 md:grid-cols-2">
+                    <div className="space-y-3 text-[11px] text-slate-500">
+                      <div>
+                        <p className="text-slate-400">마감일</p>
+                        <p className="mt-0.5 text-xs text-slate-800">
+                          {dueDateText}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-slate-400">근무 지역</p>
+                        <p className="mt-0.5 text-xs text-slate-800">
+                          {locationText}
+                        </p>
+                      </div>
+                    </div>
 
-                {/* 메모 */}
-                <div className="space-y-1 text-[11px] text-slate-500">
-                  <p className="text-slate-400">메모</p>
-                  <p className="mt-0.5 text-xs leading-relaxed text-slate-800">
-                    React, TypeScript 경험 필수. 좋은 회사 문화로 유명함.
-                    연봉 협상 가능할 것으로 예상.
-                  </p>
+                    <div className="space-y-3 text-[11px] text-slate-500">
+                      <div>
+                        <p className="text-slate-400">근무 형태</p>
+                        <p className="mt-0.5 text-xs text-slate-800">
+                          {employmentTypeText}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-slate-400">공고 소스</p>
+                        <p className="mt-0.5 text-xs text-slate-800">
+                          {sourceText}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 메모 */}
+                  <div className="space-y-1 text-[11px] text-slate-500">
+                    <p className="text-slate-400">메모</p>
+                    <p className="mt-0.5 text-xs leading-relaxed text-slate-800 whitespace-pre-line">
+                      {memoText}
+                    </p>
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
 
-            {/* 지원 이력 박스 */}
+            {/* 공고 상세 박스 (주요 업무/요건/우대/복지) */}
+            {!loading && hasDetailSections && (
+              <div className="space-y-4 rounded-2xl border border-slate-200 bg-white px-6 py-5 shadow-sm">
+                <h2 className="text-sm font-semibold text-slate-900">
+                  공고 상세
+                </h2>
+
+                <div className="space-y-4 text-[11px] text-slate-500">
+                  {jobPosting?.responsibilities && (
+                    <div className="space-y-1">
+                      <p className="text-xs font-medium text-slate-700">
+                        주요 업무
+                      </p>
+                      <p className="mt-0.5 whitespace-pre-line text-xs leading-relaxed text-slate-800">
+                        {jobPosting.responsibilities}
+                      </p>
+                    </div>
+                  )}
+
+                  {jobPosting?.requirements && (
+                    <div className="space-y-1">
+                      <p className="text-xs font-medium text-slate-700">
+                        지원 요건
+                      </p>
+                      <p className="mt-0.5 whitespace-pre-line text-xs leading-relaxed text-slate-800">
+                        {jobPosting.requirements}
+                      </p>
+                    </div>
+                  )}
+
+                  {jobPosting?.preferred && (
+                    <div className="space-y-1">
+                      <p className="text-xs font-medium text-slate-700">
+                        우대 사항
+                      </p>
+                      <p className="mt-0.5 whitespace-pre-line text-xs leading-relaxed text-slate-800">
+                        {jobPosting.preferred}
+                      </p>
+                    </div>
+                  )}
+
+                  {jobPosting?.benefits && (
+                    <div className="space-y-1">
+                      <p className="text-xs font-medium text-slate-700">
+                        복리후생
+                      </p>
+                      <p className="mt-0.5 whitespace-pre-line text-xs leading-relaxed text-slate-800">
+                        {jobPosting.benefits}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* 지원 이력 박스 (목 데이터) */}
             <div className="space-y-4 rounded-2xl border border-slate-200 bg-white px-6 py-5 shadow-sm">
               <div className="flex items-center justify-between">
                 <h2 className="text-sm font-semibold text-slate-900">
@@ -124,7 +275,7 @@ export default function JobPostingDetailPage({
               </div>
             </div>
 
-            {/* 관련 면접 일정 박스 */}
+            {/* 관련 면접 일정 박스 (목 데이터) */}
             <div className="space-y-3 rounded-2xl border border-slate-200 bg-white px-6 py-5 shadow-sm">
               <div className="flex items-center justify-between">
                 <h2 className="text-sm font-semibold text-slate-900">
@@ -153,9 +304,7 @@ export default function JobPostingDetailPage({
                 <div className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2">
                   <div className="flex items-center gap-2">
                     <span className="h-2 w-2 rounded-full bg-amber-500" />
-                    <span className="text-xs text-slate-800">
-                      과제 제출
-                    </span>
+                    <span className="text-xs text-slate-800">과제 제출</span>
                   </div>
                   <div className="text-right">
                     <p className="text-xs text-slate-800">2025-02-03</p>
@@ -191,7 +340,7 @@ export default function JobPostingDetailPage({
             </div>
           </section>
 
-          
+          {/* ================== ASIDE ================== */}
           <aside className="mt-4 w-full space-y-4 md:mt-0 md:w-72">
             {/* 빠른 작업 */}
             <div className="space-y-3 rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-sm">

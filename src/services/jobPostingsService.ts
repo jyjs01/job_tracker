@@ -1,14 +1,19 @@
+import { ObjectId } from "mongodb";
 import { connectToDatabase } from "@/src/lib/mongodb";
 import { JobPostingDocument } from "@/src/types/jobPostings";
 import { CreateJobPostingBodyInput } from "@/src/lib/validation/jobPostings";
+
+async function getJobPostingsCollection() {
+  const { db } = await connectToDatabase();
+  return db.collection<JobPostingDocument>("job_postings");
+}
 
 type ListJobPostingsOptions = {
   userId?: string;
 };
 
 export async function listJobPostings(options: ListJobPostingsOptions = {}) {
-  const { db } = await connectToDatabase();
-  const collection = db.collection<JobPostingDocument>("job_postings");
+  const collection = await getJobPostingsCollection();
 
   const filter: Partial<JobPostingDocument> = {};
   if (options.userId) {
@@ -26,13 +31,14 @@ export async function listJobPostings(options: ListJobPostingsOptions = {}) {
   }));
 }
 
+
+
 export type CreateJobPostingInput = CreateJobPostingBodyInput & {
   userId: string;
 };
 
 export async function createJobPosting(input: CreateJobPostingInput) {
-  const { db } = await connectToDatabase();
-  const collection = db.collection<JobPostingDocument>("job_postings");
+  const collection = await getJobPostingsCollection();
 
   const now = new Date();
 
@@ -61,5 +67,26 @@ export async function createJobPosting(input: CreateJobPostingInput) {
   return {
     ...doc,
     id: result.insertedId.toString(),
+  };
+}
+
+
+export async function getJobPostingById(id: string) {
+  const collection = await getJobPostingsCollection();
+
+  let objectId: ObjectId;
+  try {
+    objectId = new ObjectId(id);
+  } catch {
+    return null;
+  }
+
+  const doc = await collection.findOne({ _id: objectId });
+
+  if (!doc) return null;
+
+  return {
+    ...doc,
+    id: doc._id.toString(),
   };
 }

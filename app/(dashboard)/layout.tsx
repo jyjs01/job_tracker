@@ -17,7 +17,7 @@ export default async function DashboardLayout({
   }
 
   return (
-    <div className="flex min-h-screen bg-slate-100 font-sans cursor-default">
+    <div className="flex h-screen bg-slate-100 font-sans cursor-default">
         
       {/* 왼쪽 사이드바 */}
       <aside className="flex w-60 flex-col justify-between bg-slate-900 text-slate-100">
@@ -38,7 +38,7 @@ export default async function DashboardLayout({
       </aside>
 
       {/* 오른쪽 메인 영역 */}
-      <main className="flex flex-1 flex-col px-8 py-6">
+      <main className="flex flex-1 flex-col overflow-y-auto px-8 py-6">
         {children}
       </main>
     </div>

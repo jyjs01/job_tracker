@@ -8,7 +8,7 @@ export type JobPostingDocument = {
   position?: string;
   source?: string;
   url?: string;
-  dueDate?: Date;
+  dueDate?: Date | string;
   employmentType?: string;
   location?: string;
 
@@ -18,5 +18,5 @@ export type JobPostingDocument = {
   benefits?: string;
 
   memo?: string;
-  createdAt: Date;
+  createdAt: Date | string;
 };

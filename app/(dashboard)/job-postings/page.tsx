@@ -299,7 +299,7 @@ export default function JobPostingsPage() {
 
                     {/* 보기 버튼 */}
                     <div className="mt-2 flex w-full justify-end lg:mt-0 lg:w-auto lg:text-right">
-                      <Link href="/job-postings/1">
+                      <Link href={`/job-postings/${job.id}`}>
                         <Button
                           type="button"
                           variant="ghost"
