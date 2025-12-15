@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getJobPostingById, updateJobPosting } from "@/src/services/jobPostingsService";
+import { getJobPostingById, updateJobPosting, deleteJobPosting } from "@/src/services/jobPostingsService";
 import { createJobPostingSchema } from "@/src/lib/validation/jobPostings";
 import { getCurrentUser } from "@/src/lib/auth";
 
@@ -94,6 +94,49 @@ export async function PATCH(
     console.error("[PATCH /api/job-postings/:id] Error:", error);
     return NextResponse.json(
       { error: "채용 공고를 수정하는 중 오류가 발생했습니다." },
+      { status: 500 }
+    );
+  }
+}
+
+
+// 채용 공고 삭제
+export async function DELETE(
+  _request: Request,
+  { params }: { params: Params }
+) {
+  try {
+    const { id } = await params;
+
+    if (!id) {
+      return NextResponse.json(
+        { error: "잘못된 요청입니다. id가 필요합니다." },
+        { status: 400 }
+      );
+    }
+
+    const user = await getCurrentUser();
+    if (!user) {
+      return NextResponse.json(
+        { error: "로그인이 필요합니다." },
+        { status: 401 }
+      );
+    }
+
+    const deleted = await deleteJobPosting(id, user.id);
+
+    if (!deleted) {
+      return NextResponse.json(
+        { error: "삭제할 채용 공고를 찾을 수 없거나 권한이 없습니다." },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("[DELETE /api/job-postings/:id] Error:", error);
+    return NextResponse.json(
+      { error: "채용 공고를 삭제하는 중 오류가 발생했습니다." },
       { status: 500 }
     );
   }

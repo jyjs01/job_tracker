@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import axios from "axios";
 import Link from "next/link";
 import Button from "@/src/components/ui/Button";
@@ -21,11 +21,13 @@ function formatDate(value?: string | Date) {
 export default function JobPostingDetailPage() {
   const params = useParams<{ id: string }>();
   const id = params?.id;
+  const router = useRouter();
 
   const [jobPosting, setJobPosting] = useState<JobPostingWithId | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // 채용 공고 불러오기
   useEffect(() => {
     if (!id || id === "undefined") {
       setError("올바르지 않은 채용 공고 주소입니다.");
@@ -59,6 +61,27 @@ export default function JobPostingDetailPage() {
 
     fetchJobPosting();
   }, [id]);
+
+  // 채용 공고 삭제하기
+  const handleDelete = async () => {
+    if (!id || id === "undefined") {
+      alert("올바르지 않은 채용 공고 주소가 아닙니다.");
+      return;
+    }
+
+    const ok = window.confirm(
+      "정말 이 공고를 삭제하시겠습니까?\n삭제 후에는 되돌릴 수 없습니다."
+    );
+    if (!ok) return;
+
+    try {
+      await axios.delete(`/api/job-postings/${id}`);
+      router.replace("/job-postings");
+    } catch (err) {
+      console.error("채용 공고 삭제 오류:", err);
+      alert("공고 삭제 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.");
+    }
+  };
 
   const title = jobPosting?.title ?? "채용 공고 상세";
   const dueDateText = formatDate(jobPosting?.dueDate);
@@ -417,10 +440,11 @@ export default function JobPostingDetailPage() {
                   type="button"
                   variant="outline"
                   size="sm"
-                  className="flex w-full justify-start gap-2 text-[11px]"
+                  className="mt-3 flex w-full justify-start gap-2 text-[11px] border-rose-200 text-rose-600 hover:bg-rose-50 hover:text-rose-700"
+                  onClick={handleDelete}
                 >
-                  <span>📝</span>
-                  <span>메모 추가</span>
+                  <span>🗑</span>
+                  <span>공고 삭제</span>
                 </Button>
               </div>
             </div>

@@ -183,3 +183,17 @@ export async function updateJobPosting(
     id: doc._id?.toString(),
   };
 }
+
+
+// 채용 공고 삭제
+export async function deleteJobPosting(id: string, userId: string) {
+  const collection = await getJobPostingsCollection();
+  const objectId = new ObjectId(id);
+
+  const result = await collection.deleteOne({
+    _id: objectId,
+    userId, 
+  });
+
+  return result.deletedCount === 1;
+}
