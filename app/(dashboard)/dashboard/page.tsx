@@ -1,3 +1,4 @@
+import Link from "next/link";
 import StatCard from "@/src/components/dashboard/StatCard";
 import Button from "@/src/components/ui/Button";
 import InterviewCard, { InterviewItem } from "@/src/components/dashboard/InterviewCard";
@@ -81,13 +82,15 @@ export default function DashboardPage() {
             <h2 className="text-sm font-semibold text-slate-900">
               다가오는 면접 일정
             </h2>
-            <Button
-              variant="text"
-              size="sm"
-              className="text-slate-400 hover:text-slate-600"
-            >
-              전체 보기
-            </Button>
+            <Link href="/interviews">
+              <Button
+                variant="text"
+                size="sm"
+                className="text-slate-400 hover:text-slate-600"
+              >
+                전체 보기
+              </Button>
+            </Link>
           </div>
 
           <div className="space-y-3">
@@ -103,13 +106,15 @@ export default function DashboardPage() {
             <h2 className="text-sm font-semibold text-slate-900">
               마감 임박 공고
             </h2>
-            <Button
-              variant="text"
-              size="sm"
-              className="text-slate-400 hover:text-slate-600"
-            >
-              전체 보기
-            </Button>
+            <Link href="/job-postings">
+              <Button
+                variant="text"
+                size="sm"
+                className="text-slate-400 hover:text-slate-600"
+              >
+                전체 보기
+              </Button>
+            </Link>
           </div>
 
           <div className="space-y-3">
