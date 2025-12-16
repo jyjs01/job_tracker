@@ -217,7 +217,7 @@ export default function ApplicationsPage() {
         </div>
 
         <Link
-          href="/applications/new"
+          href="/applications/create"
           className="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-slate-950"
         >
           <span className="inline-flex h-5 w-5 items-center justify-center rounded-md bg-white/10">
