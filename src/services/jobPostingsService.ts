@@ -99,9 +99,10 @@ export async function getJobPostingById(id: string) {
 }
 
 
-export type UpdateJobPostingInput = Partial<CreateJobPostingInput>;
 
 // 채용 공고 수정
+export type UpdateJobPostingInput = Partial<CreateJobPostingInput>;
+
 export async function updateJobPosting(
   id: string,
   input: UpdateJobPostingInput,
