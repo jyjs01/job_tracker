@@ -15,13 +15,7 @@ import {
 export default function JobPostingCreatePage() {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [errors, setErrors] = useState<Partial<Record<keyof JobPostingFormValues, string>>>(
-    {}
-  );
-
-  const handleCancel = () => {
-    router.back();
-  };
+  const [errors, setErrors] = useState<Partial<Record<keyof JobPostingFormValues, string>>>({});
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -33,9 +27,16 @@ export default function JobPostingCreatePage() {
       const formData = new FormData(e.currentTarget);
 
       const values: JobPostingFormValues = {
+        companyName:
+          (formData.get("companyName") as string | null)?.trim() ?? "",
+        companyIndustry:
+          (formData.get("companyIndustry") as string | null)?.trim() ?? "",
+        companyHomepageUrl:
+          (formData.get("companyHomepageUrl") as string | null)?.trim() ?? "",
         title: (formData.get("title") as string | null)?.trim() ?? "",
         jobCategory: (formData.get("jobCategory") as string | null) ?? "",
-        employmentType: (formData.get("employmentType") as string | null) ?? "",
+        employmentType:
+          (formData.get("employmentType") as string | null) ?? "",
         career: (formData.get("career") as string | null)?.trim() ?? "",
         location: (formData.get("location") as string | null)?.trim() ?? "",
         responsibilities:
@@ -53,12 +54,12 @@ export default function JobPostingCreatePage() {
         memo: (formData.get("memo") as string | null)?.trim() || "",
       };
 
-      // 클라이언트 유효성 검사
       const parsed = jobPostingFormSchema.safeParse(values);
 
       if (!parsed.success) {
-        const fieldErrors: Partial<Record<keyof JobPostingFormValues, string>> =
-          {};
+        const fieldErrors: Partial<
+          Record<keyof JobPostingFormValues, string>
+        > = {};
 
         parsed.error.issues.forEach((issue) => {
           const fieldName = issue.path[0] as keyof JobPostingFormValues;
@@ -74,8 +75,10 @@ export default function JobPostingCreatePage() {
 
       setErrors({});
 
-      // 서버에 보낼 payload (userId는 서버에서 getCurrentUser로 처리)
       const payload = {
+        companyName: parsed.data.companyName,
+        companyIndustry: parsed.data.companyIndustry || undefined,
+        companyHomepageUrl: parsed.data.companyHomepageUrl || undefined,
         title: parsed.data.title,
         position: parsed.data.jobCategory,
         employmentType: parsed.data.employmentType,
@@ -247,7 +250,6 @@ export default function JobPostingCreatePage() {
                 </div>
               </div>
 
-              {/* 공고 소스 / 공고 URL */}
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-1">
                   <label className="text-xs font-medium text-slate-700">
@@ -265,14 +267,52 @@ export default function JobPostingCreatePage() {
                   </label>
                   <Input
                     name="url"
-                    placeholder="예: https://company.com/careers/123"
                   />
-                  {/* url 검증 에러가 있을 때만 보여주기 (선택) */}
                   {errors.url && (
                     <p className="mt-1 text-[11px] text-rose-500">{errors.url}</p>
                   )}
                 </div>
               </div>
+              <div className="space-y-1">
+                  <label className="text-xs font-medium text-slate-700">
+                    회사명 <span className="text-rose-500">*</span>
+                  </label>
+                  <Input
+                    name="companyName"
+                    required
+                  />
+                  {errors.companyName && (
+                    <p className="mt-1 text-[11px] text-rose-500">
+                      {errors.companyName}
+                    </p>
+                  )}
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-slate-700">
+                      산업 / 업종
+                    </label>
+                    <Input
+                      name="companyIndustry"
+                      placeholder="예: IT 서비스, 핀테크, 커머스 등"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-slate-700">
+                      회사 홈페이지(URL)
+                    </label>
+                    <Input
+                      name="companyHomepageUrl"
+                    />
+                    {errors.companyHomepageUrl && (
+                      <p className="mt-1 text-[11px] text-rose-500">
+                        {errors.companyHomepageUrl}
+                      </p>
+                    )}
+                  </div>
+                </div>
             </div>
           </section>
 
@@ -295,7 +335,6 @@ export default function JobPostingCreatePage() {
                   name="responsibilities"
                   className="min-h-24 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none placeholder:text-slate-500 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                   placeholder="담당하게 될 주요 업무를 작성해주세요"
-                  required
                 />
                 {errors.responsibilities && (
                   <p className="mt-1 text-[11px] text-rose-500">
@@ -313,7 +352,6 @@ export default function JobPostingCreatePage() {
                   name="requirements"
                   className="min-h-24 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none placeholder:text-slate-500 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                   placeholder="필수 자격 요건을 작성해주세요"
-                  required
                 />
                 {errors.requirements && (
                   <p className="mt-1 text-[11px] text-rose-500">
@@ -353,61 +391,76 @@ export default function JobPostingCreatePage() {
             <div>
               <h2 className="text-sm font-semibold text-slate-900">모집 조건</h2>
               <p className="mt-1 text-[11px] text-slate-500">
-                급여, 진행 기간 등을 설정해주세요.
+                모집 인원, 급여, 진행 기간 등을 설정해주세요.
               </p>
             </div>
 
             <div className="space-y-4">
-              {/* 급여 정보 */}
-              <div className="space-y-1">
-                <label className="text-xs font-medium text-slate-700">
-                  급여 정보
-                </label>
-                <Input
-                  name="salary"
-                  placeholder="예: 연봉 4,000만원 ~ 6,000만원"
-                />
+              {/* 모집 인원 / 급여 정보 */}
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-slate-700">
+                    모집 인원
+                  </label>
+                  <Input
+                    type="number"
+                    min={1}
+                    name="headcount"
+                    placeholder="1"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-slate-700">
+                    급여 정보
+                  </label>
+                  <Input
+                    name="salary"
+                    placeholder="예: 연봉 4,000만원 ~ 6,000만원"
+                  />
+                </div>
               </div>
 
               {/* 시작일 / 마감일 */}
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-1">
                   <label className="text-xs font-medium text-slate-700">
-                    시작일 <span className="text-rose-500">*</span>
+                    시작일
                   </label>
                   <Input type="date" name="startDate" />
                 </div>
 
                 <div className="space-y-1">
                   <label className="text-xs font-medium text-slate-700">
-                    마감일 <span className="text-rose-500">*</span>
+                    마감일
                   </label>
                   <Input type="date" name="dueDate" />
-                  {errors.dueDate && (
-                    <p className="mt-1 text-[11px] text-rose-500">
-                      {errors.dueDate}
-                    </p>
-                  )}
                 </div>
               </div>
-            </div>
-          </section>
 
-          {/* 메모 카드 */}
-          <section className="space-y-4 rounded-2xl border border-slate-200 bg-white px-6 py-5 shadow-sm">
-            <div>
-              <h2 className="text-sm font-semibold text-slate-900">메모</h2>
-              <p className="mt-1 text-[11px] text-slate-500">
-                이 공고에 대해 개인적으로 남겨두고 싶은 메모가 있다면 적어주세요.
-              </p>
-            </div>
-
-            <div className="space-y-1">
-              <textarea
-                name="memo"
-                className="min-h-24 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none placeholder:text-slate-500 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                placeholder="예: 코딩테스트 있음 / 포트폴리오 필수 / 면접 예상 질문 정리 필요 등"
-              />
+              {/* 진행 상태 */}
+              <div className="space-y-2">
+                <p className="text-xs font-medium text-slate-700">진행 상태</p>
+                <div className="flex flex-wrap gap-4 text-xs text-slate-700">
+                  <label className="inline-flex items-center gap-1">
+                    <input
+                      type="radio"
+                      name="publishStatus"
+                      className="h-3.5 w-3.5 border-slate-300 text-slate-900 focus:ring-blue-500"
+                      defaultChecked
+                    />
+                    <span>즉시 공개</span>
+                  </label>
+                  <label className="inline-flex items-center gap-1">
+                    <input
+                      type="radio"
+                      name="publishStatus"
+                      className="h-3.5 w-3.5 border-slate-300 text-slate-900 focus:ring-blue-500"
+                    />
+                    <span>임시 저장</span>
+                  </label>
+                </div>
+              </div>
             </div>
           </section>
 
@@ -418,7 +471,7 @@ export default function JobPostingCreatePage() {
               variant="ghost"
               size="md"
               className="text-xs text-slate-500"
-              onClick={handleCancel}
+              onClick={() => router.back()}
             >
               취소
             </Button>

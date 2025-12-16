@@ -89,10 +89,16 @@ export default function JobPostingDetailPage() {
   const locationText = jobPosting?.location ?? "-";
   const sourceText = jobPosting?.source ?? "소스 미기입";
   const positionText = jobPosting?.position ?? "포지션 미기입";
-  const memoText = jobPosting?.memo ?? "아직 메모가 없습니다. 나중에 이 공고에 대한 메모를 남겨보세요.";
+  const memoText =
+    jobPosting?.memo ??
+    "아직 메모가 없습니다. 나중에 이 공고에 대한 메모를 남겨보세요.";
   const careerText = jobPosting?.career ?? "-";
   const salaryText = jobPosting?.salary ?? "-";
   const createdAtText = formatDate(jobPosting?.createdAt);
+
+  const companyNameText = jobPosting?.companyName ?? "-";
+  const companyIndustryText = jobPosting?.companyIndustry ?? "";
+  const companyHomepageUrl = jobPosting?.companyHomepageUrl ?? "";
 
   const hasDetailSections =
     !!jobPosting?.responsibilities ||
@@ -125,7 +131,6 @@ export default function JobPostingDetailPage() {
 
         {/* 메인 레이아웃: 왼쪽 section / 오른쪽 aside */}
         <div className="flex flex-col gap-4 md:flex-row md:items-start">
-
           {/* ================== SECTION ================== */}
           <section className="flex-1 space-y-4">
             {/* 기본 정보 박스 */}
@@ -136,9 +141,21 @@ export default function JobPostingDetailPage() {
                     {loading ? "채용 공고 불러오는 중..." : title}
                   </h1>
                   {!loading && (
-                    <p className="mt-1 text-xs text-slate-500">
-                      {positionText}
-                    </p>
+                    <div className="mt-1 space-y-0.5 text-xs">
+                      {companyNameText !== "-" && (
+                        <p className="font-medium text-slate-800">
+                          {companyNameText}
+                        </p>
+                      )}
+                      {companyIndustryText && (
+                        <p className="text-[11px] text-slate-400">
+                          {companyIndustryText}
+                        </p>
+                      )}
+                      <p className="text-[11px] text-slate-500">
+                        {positionText}
+                      </p>
+                    </div>
                   )}
                 </div>
 
@@ -195,10 +212,24 @@ export default function JobPostingDetailPage() {
                     </div>
                   </div>
 
+                  {companyHomepageUrl && (
+                    <div className="space-y-1 text-[11px] text-slate-500">
+                      <p className="text-slate-400">회사 홈페이지</p>
+                      <a
+                        href={companyHomepageUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mt-0.5 inline-flex text-xs text-sky-600 underline"
+                      >
+                        {companyHomepageUrl}
+                      </a>
+                    </div>
+                  )}
+
                   {/* 메모 */}
                   <div className="space-y-1 text-[11px] text-slate-500">
                     <p className="text-slate-400">메모</p>
-                    <p className="mt-0.5 text-xs leading-relaxed text-slate-800 whitespace-pre-line">
+                    <p className="mt-0.5 whitespace-pre-line text-xs leading-relaxed text-slate-800">
                       {memoText}
                     </p>
                   </div>
