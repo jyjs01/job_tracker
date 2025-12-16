@@ -9,6 +9,7 @@ import FilterSelect from "@/src/components/ui/FilterSelect";
 type JobPostingRow = {
   id: string;
   title: string;
+  companyName?: string;
   position?: string;
   employmentType?: string;
   source?: string;
@@ -24,7 +25,6 @@ type SourceFilter =
   | "회사 채용 홈페이지";
 
 function formatDate(value?: string) {
-
   if (!value) return "-";
 
   const d = new Date(value);
@@ -34,7 +34,6 @@ function formatDate(value?: string) {
 }
 
 function getDeadlineStatus(dueDate?: string): DeadlineFilter | "없음" {
-
   if (!dueDate) return "없음";
 
   const date = new Date(dueDate);
@@ -250,7 +249,7 @@ export default function JobPostingsPage() {
             <>
               {/* 테이블 헤더 */}
               <div className="hidden items-center px-6 py-3 text-[11px] font-medium text-slate-400 lg:flex">
-                <div className="flex-2">공고 제목</div>
+                <div className="flex-2">공고 / 회사</div>
                 <div className="flex-[1.4]">직무 / 고용 형태</div>
                 <div className="flex-[1.2]">소스</div>
                 <div className="flex-1">근무지</div>
@@ -265,11 +264,16 @@ export default function JobPostingsPage() {
                     key={job.id}
                     className="flex flex-col border-t border-slate-100 px-4 py-3 text-xs text-slate-700 hover:bg-slate-50 lg:flex-row lg:items-center lg:px-6"
                   >
-                    {/* 공고 제목 */}
+                    {/* 공고 제목 / 회사명 */}
                     <div className="flex-2">
                       <p className="text-xs font-medium text-slate-900">
                         {job.title}
                       </p>
+                      {job.companyName && (
+                        <p className="mt-0.5 text-[11px] text-slate-500">
+                          {job.companyName}
+                        </p>
+                      )}
                     </div>
 
                     {/* 직무 / 고용 형태 */}

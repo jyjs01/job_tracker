@@ -8,6 +8,14 @@ export const createJobPostingSchema = z.object({
   url: z.string().url("URL 형식이 올바르지 않습니다.").optional(),
   career: z.string().optional(),
   salary: z.string().optional(),
+  companyName: z.string().min(1, "회사명은 필수입니다."),
+  companyIndustry: z.string().optional(),
+  companyHomepageUrl: z
+    .string()
+    .url("유효한 URL 형식이 아닙니다.")
+    .optional()
+    .or(z.literal("")),
+
 
   dueDate: z
     .string()

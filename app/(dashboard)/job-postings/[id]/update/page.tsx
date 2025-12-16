@@ -72,10 +72,6 @@ export default function JobPostingUpdatePage() {
     fetchJobPosting();
   }, [id]);
 
-  const handleCancel = () => {
-    router.back();
-  };
-
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (isSubmitting) return;
@@ -90,19 +86,26 @@ export default function JobPostingUpdatePage() {
       const formData = new FormData(e.currentTarget);
 
       const values: JobPostingFormValues = {
+        companyName:
+          (formData.get("companyName") as string | null)?.trim() ?? "",
+        companyIndustry:
+          (formData.get("companyIndustry") as string | null)?.trim() ?? "",
+        companyHomepageUrl:
+          (formData.get("companyHomepageUrl") as string | null)?.trim() ?? "",
         title: (formData.get("title") as string | null)?.trim() ?? "",
         jobCategory: (formData.get("jobCategory") as string | null) ?? "",
-        employmentType: (formData.get("employmentType") as string | null) ?? "",
+        employmentType:
+          (formData.get("employmentType") as string | null) ?? "",
         career: (formData.get("career") as string | null)?.trim() ?? "",
         location: (formData.get("location") as string | null)?.trim() ?? "",
         responsibilities:
-        (formData.get("responsibilities") as string | null)?.trim() ?? "",
+          (formData.get("responsibilities") as string | null)?.trim() ?? "",
         requirements:
-        (formData.get("requirements") as string | null)?.trim() ?? "",
+          (formData.get("requirements") as string | null)?.trim() ?? "",
         preferred:
-        (formData.get("preferred") as string | null)?.trim() || "",
+          (formData.get("preferred") as string | null)?.trim() || "",
         benefits:
-        (formData.get("benefits") as string | null)?.trim() || "",
+          (formData.get("benefits") as string | null)?.trim() || "",
         dueDate: (formData.get("dueDate") as string | null) || undefined,
         source: (formData.get("source") as string | null)?.trim() || "",
         url: (formData.get("url") as string | null)?.trim() || "",
@@ -110,7 +113,6 @@ export default function JobPostingUpdatePage() {
         memo: (formData.get("memo") as string | null)?.trim() || "",
       } as JobPostingFormValues;
 
-      // 클라이언트 유효성 검사
       const parsed = jobPostingFormSchema.safeParse(values);
 
       if (!parsed.success) {
@@ -132,8 +134,10 @@ export default function JobPostingUpdatePage() {
 
       setErrors({});
 
-      // 서버에 보낼 payload (create 때와 같은 매핑, PATCH 로 전송)
       const payload = {
+        companyName: parsed.data.companyName,
+        companyIndustry: parsed.data.companyIndustry || undefined,
+        companyHomepageUrl: parsed.data.companyHomepageUrl || undefined,
         title: parsed.data.title,
         position: parsed.data.jobCategory,
         employmentType: parsed.data.employmentType,
@@ -362,6 +366,52 @@ export default function JobPostingUpdatePage() {
                     )}
                   </div>
                 </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-slate-700">
+                    회사명 <span className="text-rose-500">*</span>
+                  </label>
+                  <Input
+                    name="companyName"
+                    placeholder="예: 네이버, 카카오, 토스 등"
+                    defaultValue={jobPosting.companyName}
+                    required
+                  />
+                  {errors.companyName && (
+                    <p className="mt-1 text-[11px] text-rose-500">
+                      {errors.companyName}
+                    </p>
+                  )}
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-slate-700">
+                      산업 / 업종
+                    </label>
+                    <Input
+                      name="companyIndustry"
+                      placeholder="예: IT 서비스, 핀테크, 커머스 등"
+                      defaultValue={jobPosting.companyIndustry || ""}
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-slate-700">
+                      회사 홈페이지(URL)
+                    </label>
+                    <Input
+                      name="companyHomepageUrl"
+                      placeholder="예: https://company.com"
+                      defaultValue={jobPosting.companyHomepageUrl || ""}
+                    />
+                    {errors.companyHomepageUrl && (
+                      <p className="mt-1 text-[11px] text-rose-500">
+                        {errors.companyHomepageUrl}
+                      </p>
+                    )}
+                  </div>
+                </div>
               </div>
             </section>
 
@@ -457,14 +507,14 @@ export default function JobPostingUpdatePage() {
               <div className="space-y-4">
                 {/* 급여 정보 */}
                 <div className="space-y-1">
-                    <label className="text-xs font-medium text-slate-700">
-                      급여 정보
-                    </label>
-                    <Input
-                      name="salary"
-                      placeholder="예: 연봉 4,000만원 ~ 6,000만원"
-                      defaultValue={jobPosting.salary}
-                    />
+                  <label className="text-xs font-medium text-slate-700">
+                    급여 정보
+                  </label>
+                  <Input
+                    name="salary"
+                    placeholder="예: 연봉 4,000만원 ~ 6,000만원"
+                    defaultValue={jobPosting.salary || ""}
+                  />
                 </div>
 
                 {/* 시작일 / 마감일 */}
@@ -473,10 +523,11 @@ export default function JobPostingUpdatePage() {
                     <label className="text-xs font-medium text-slate-700">
                       시작일 <span className="text-rose-500">*</span>
                     </label>
-                    <Input 
-                      type="date" 
-                      name="startDate" 
-                      defaultValue={toDateInputValue(jobPosting.createdAt)}/>
+                    <Input
+                      type="date"
+                      name="startDate"
+                      defaultValue={toDateInputValue(jobPosting.createdAt)}
+                    />
                   </div>
 
                   <div className="space-y-1">
@@ -524,7 +575,7 @@ export default function JobPostingUpdatePage() {
                 variant="ghost"
                 size="md"
                 className="text-xs text-slate-500"
-                onClick={handleCancel}
+                onClick={() => router.back()}
               >
                 취소
               </Button>
