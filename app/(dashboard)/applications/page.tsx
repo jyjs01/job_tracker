@@ -1,23 +1,26 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import axios from "axios";
 
-type ApplicationStatus =
-  | "준비"
-  | "지원 완료"
-  | "서류 합격"
-  | "면접 진행"
-  | "합격"
-  | "불합격";
+import type {
+  ApplicationRow as ApplicationApiRow,
+  ApplicationStatus,
+} from "@/src/types/applications";
 
-type ApplicationRow = {
-  id: string;
+type JobPostingApiRow = {
+  id?: string;
+  _id?: string;
+  company_name?: string;
+  companyName?: string;
+  position?: string;
+  title?: string;
+};
+
+type ApplicationListRow = Pick<ApplicationApiRow, "id" | "status" | "appliedAt"> & {
   companyName: string;
   position: string;
-  status: ApplicationStatus;
-  currentStep: string;
-  appliedAt?: string;
 };
 
 const STATUS_TABS: Array<"전체" | ApplicationStatus> = [
@@ -30,7 +33,7 @@ const STATUS_TABS: Array<"전체" | ApplicationStatus> = [
   "불합격",
 ];
 
-const PAGE_SIZE = 6;
+const PAGE_SIZE = 5;
 
 function getInitial(name: string) {
   const trimmed = name.trim();
@@ -64,108 +67,65 @@ export default function ApplicationsPage() {
   const [keyword, setKeyword] = useState("");
   const [page, setPage] = useState(1);
 
-  // 더미 데이터 (나중에 DB/API로 교체)
-  const rows: ApplicationRow[] = useMemo(
-    () => [
-      {
-        id: "1",
-        companyName: "카카오",
-        position: "프론트엔드 개발자",
-        status: "면접 진행",
-        currentStep: "2차 면접 대기",
-        appliedAt: "2025-01-15",
-      },
-      {
-        id: "2",
-        companyName: "네이버",
-        position: "백엔드 개발자",
-        status: "서류 합격",
-        currentStep: "1차 면접 준비",
-        appliedAt: "2025-01-10",
-      },
-      {
-        id: "3",
-        companyName: "토스",
-        position: "풀스택 개발자",
-        status: "지원 완료",
-        currentStep: "서류 검토 중",
-        appliedAt: "2025-01-08",
-      },
-      {
-        id: "4",
-        companyName: "라인",
-        position: "DevOps 엔지니어",
-        status: "합격",
-        currentStep: "최종 합격",
-        appliedAt: "2024-12-20",
-      },
-      {
-        id: "5",
-        companyName: "쿠팡",
-        position: "데이터 엔지니어",
-        status: "불합격",
-        currentStep: "서류 탈락",
-        appliedAt: "2024-12-15",
-      },
-      {
-        id: "6",
-        companyName: "배달의민족",
-        position: "모바일 개발자",
-        status: "준비",
-        currentStep: "지원서 작성 중",
-      },
-      // 페이지네이션 UI 확인용 더미
-      {
-        id: "7",
-        companyName: "당근",
-        position: "프론트엔드 개발자",
-        status: "준비",
-        currentStep: "공고 탐색 중",
-        appliedAt: "2024-12-10",
-      },
-      {
-        id: "8",
-        companyName: "우아한형제들",
-        position: "프론트엔드 개발자",
-        status: "지원 완료",
-        currentStep: "서류 검토 중",
-        appliedAt: "2024-12-08",
-      },
-      {
-        id: "9",
-        companyName: "카페24",
-        position: "웹 개발자",
-        status: "서류 합격",
-        currentStep: "코딩테스트 대기",
-        appliedAt: "2024-12-05",
-      },
-      {
-        id: "10",
-        companyName: "NHN",
-        position: "프론트엔드 개발자",
-        status: "면접 진행",
-        currentStep: "1차 면접 완료",
-        appliedAt: "2024-12-03",
-      },
-      {
-        id: "11",
-        companyName: "KT",
-        position: "웹 개발자",
-        status: "불합격",
-        currentStep: "코딩테스트 탈락",
-        appliedAt: "2024-12-01",
-      },
-      {
-        id: "12",
-        companyName: "삼성",
-        position: "소프트웨어 개발자",
-        status: "지원 완료",
-        currentStep: "서류 제출 완료",
-        appliedAt: "2024-11-28",
-      },
-    ],
-    []
-  );
+  const [rows, setRows] = useState<ApplicationListRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  const fetchRows = async () => {
+    try {
+      setLoading(true);
+      setErrorMsg(null);
+
+      const [appsRes, postingsRes] = await Promise.all([
+        axios.get("/api/applications"),
+        axios.get("/api/job-postings"),
+      ]);
+
+      const applications = (appsRes.data?.data ?? []) as ApplicationApiRow[];
+      const jobPostings = (postingsRes.data?.data ?? []) as JobPostingApiRow[];
+
+      const postingMap = new Map<string, JobPostingApiRow>();
+      for (const jp of jobPostings) {
+        const id = String(jp.id ?? jp._id ?? "");
+        if (!id) continue;
+        postingMap.set(id, jp);
+      }
+
+      const merged: ApplicationListRow[] = applications.map((app) => {
+        const posting = postingMap.get(app.jobPostingId);
+
+        const companyName =
+          posting?.company_name ??
+          posting?.companyName ??
+          posting?.title ??
+          "회사명 미기입";
+
+        const position = posting?.position ?? "-";
+
+        return {
+          id: app.id,
+          companyName,
+          position,
+          status: app.status,
+          appliedAt: app.appliedAt,
+        };
+      });
+
+      setRows(merged);
+      setPage(1);
+    } catch (err) {
+      console.error("지원 이력 불러오기 오류:", err);
+      setErrorMsg("지원 이력을 불러오는 중 오류가 발생했습니다.");
+      setRows([]);
+      setPage(1);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchRows();
+  }, []);
 
   const filtered = useMemo(() => {
     const byStatus =
@@ -179,17 +139,14 @@ export default function ApplicationsPage() {
     return byKeyword;
   }, [rows, status, keyword]);
 
-
   const total = filtered.length;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
-
 
   const paged = useMemo(() => {
     const start = (safePage - 1) * PAGE_SIZE;
     return filtered.slice(start, start + PAGE_SIZE);
   }, [filtered, safePage]);
-
 
   const rangeText = useMemo(() => {
     if (total === 0) return "0-0 of 0 results";
@@ -197,7 +154,6 @@ export default function ApplicationsPage() {
     const end = Math.min(safePage * PAGE_SIZE, total);
     return `${start}-${end} of ${total} results`;
   }, [total, safePage]);
-
 
   const reset = () => {
     setStatus("전체");
@@ -207,7 +163,6 @@ export default function ApplicationsPage() {
 
   return (
     <main className="px-6 py-6">
-      {/* 헤더 */}
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-xl font-semibold text-slate-900">지원 이력</h1>
@@ -227,23 +182,32 @@ export default function ApplicationsPage() {
         </Link>
       </div>
 
-      {/* 필터 카드 */}
       <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <div className="flex items-center justify-between">
           <div className="text-sm font-semibold text-slate-900">필터</div>
 
-          <button
-            type="button"
-            onClick={reset}
-            className="inline-flex items-center gap-2 text-xs font-medium text-slate-500 hover:text-slate-700"
-          >
-            <span className="inline-block rotate-0">↻</span>
-            초기화
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={reset}
+              className="inline-flex items-center gap-2 text-xs font-medium text-slate-500 hover:text-slate-700"
+            >
+              <span className="inline-block rotate-0">↻</span>
+              초기화
+            </button>
+
+            <button
+              type="button"
+              onClick={fetchRows}
+              className="inline-flex items-center gap-2 text-xs font-medium text-slate-500 hover:text-slate-700"
+              disabled={loading}
+            >
+              ⟳ 새로고침
+            </button>
+          </div>
         </div>
 
         <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-12">
-          {/* 상태 탭 */}
           <div className="lg:col-span-8">
             <div className="text-xs font-medium text-slate-500">상태</div>
             <div className="mt-2 flex flex-wrap gap-2">
@@ -271,7 +235,6 @@ export default function ApplicationsPage() {
             </div>
           </div>
 
-          {/* 검색 */}
           <div className="lg:col-span-4">
             <div className="text-xs font-medium text-slate-500">회사명 검색</div>
             <div className="mt-2 flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2">
@@ -290,7 +253,6 @@ export default function ApplicationsPage() {
         </div>
       </section>
 
-      {/* 목록 카드 */}
       <section className="mt-6 rounded-2xl border border-slate-200 bg-white shadow-sm">
         <div className="flex items-center justify-between px-5 py-4">
           <div className="text-sm font-semibold text-slate-900">지원 목록</div>
@@ -300,18 +262,30 @@ export default function ApplicationsPage() {
           </div>
         </div>
 
-        {/* 테이블 헤더 */}
         <div className="grid grid-cols-12 border-t border-slate-100 bg-slate-50 px-5 py-3 text-[11px] font-semibold text-slate-500">
-          <div className="col-span-4">회사명</div>
-          <div className="col-span-3">포지션</div>
+          <div className="col-span-5">회사명</div>
+          <div className="col-span-4">포지션</div>
           <div className="col-span-2">상태</div>
-          <div className="col-span-2">현재 단계</div>
           <div className="col-span-1 text-right">지원 날짜</div>
         </div>
 
-        {/* 테이블 바디 */}
         <div className="divide-y divide-slate-100">
-          {paged.length === 0 ? (
+          {loading ? (
+            <div className="px-5 py-10 text-center text-sm text-slate-500">
+              불러오는 중...
+            </div>
+          ) : errorMsg ? (
+            <div className="px-5 py-10 text-center">
+              <p className="text-sm text-rose-600">{errorMsg}</p>
+              <button
+                type="button"
+                onClick={fetchRows}
+                className="mt-3 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+              >
+                다시 시도
+              </button>
+            </div>
+          ) : paged.length === 0 ? (
             <div className="px-5 py-10 text-center text-sm text-slate-500">
               조건에 맞는 지원 이력이 없습니다.
             </div>
@@ -322,7 +296,7 @@ export default function ApplicationsPage() {
                 href={`/applications/${r.id}`}
                 className="grid grid-cols-12 items-center px-5 py-4 hover:bg-slate-50"
               >
-                <div className="col-span-4 flex items-center gap-3">
+                <div className="col-span-5 flex items-center gap-3">
                   <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-700 text-xs font-bold text-white">
                     {getInitial(r.companyName)}
                   </div>
@@ -333,16 +307,12 @@ export default function ApplicationsPage() {
                   </div>
                 </div>
 
-                <div className="col-span-3 truncate text-sm font-medium text-slate-900">
+                <div className="col-span-4 truncate text-sm font-medium text-slate-900">
                   {r.position}
                 </div>
 
                 <div className="col-span-2">
                   <span className={badgeClass(r.status)}>{r.status}</span>
-                </div>
-
-                <div className="col-span-2 truncate text-sm text-slate-700">
-                  {r.currentStep}
                 </div>
 
                 <div className="col-span-1 flex items-center justify-end gap-3">
@@ -356,7 +326,6 @@ export default function ApplicationsPage() {
           )}
         </div>
 
-        {/* 푸터 / 페이지네이션 */}
         <div className="flex items-center justify-between px-5 py-4">
           <div className="text-xs text-slate-500">{rangeText}</div>
 
