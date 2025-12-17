@@ -3,11 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import axios from "axios";
-
-import type {
-  ApplicationRow as ApplicationApiRow,
-  ApplicationStatus,
-} from "@/src/types/applications";
+import type { ApplicationRow, ApplicationStatus } from "@/src/types/applications";
 
 type JobPostingApiRow = {
   id?: string;
@@ -18,7 +14,7 @@ type JobPostingApiRow = {
   title?: string;
 };
 
-type ApplicationListRow = Pick<ApplicationApiRow, "id" | "status" | "appliedAt"> & {
+type ApplicationListRow = Pick<ApplicationRow, "id" | "status" | "appliedAt"> & {
   companyName: string;
   position: string;
 };
@@ -81,7 +77,7 @@ export default function ApplicationsPage() {
         axios.get("/api/job-postings"),
       ]);
 
-      const applications = (appsRes.data?.data ?? []) as ApplicationApiRow[];
+      const applications = (appsRes.data?.data ?? []) as ApplicationRow[];
       const jobPostings = (postingsRes.data?.data ?? []) as JobPostingApiRow[];
 
       const postingMap = new Map<string, JobPostingApiRow>();
