@@ -4,6 +4,7 @@ import type {
   ApplicationDocument,
   ApplicationRow,
   CreateApplicationArgs,
+  ApplicationStatus,
 } from "@/src/types/applications";
 
 function toRow(doc: ApplicationDocument): ApplicationRow {
@@ -19,7 +20,11 @@ function toRow(doc: ApplicationDocument): ApplicationRow {
   };
 }
 
-// 지원 이력 불러오기
+function toObjectId(id: string): ObjectId | null {
+  if (!ObjectId.isValid(id)) return null;
+  return new ObjectId(id);
+}
+
 export async function getApplications(userId: string): Promise<ApplicationRow[]> {
   const { db } = await connectToDatabase();
 
@@ -32,8 +37,6 @@ export async function getApplications(userId: string): Promise<ApplicationRow[]>
   return docs.map(toRow);
 }
 
-
-// 지원 이력 추가하기
 export async function createApplication(
   args: CreateApplicationArgs
 ): Promise<ApplicationRow> {
@@ -61,4 +64,78 @@ export async function createApplication(
   };
 
   return toRow(created);
+}
+
+export async function getApplicationById(
+  userId: string,
+  id: string
+): Promise<ApplicationRow | null> {
+  const objectId = toObjectId(id);
+  if (!objectId) return null;
+
+  const { db } = await connectToDatabase();
+
+  const doc = await db
+    .collection<ApplicationDocument>("applications")
+    .findOne({ _id: objectId, user_id: userId });
+
+  if (!doc) return null;
+  return toRow(doc);
+}
+
+export async function updateApplicationById(
+  userId: string,
+  id: string,
+  updates: {
+    status?: ApplicationStatus;
+    appliedAt?: string | null;
+    memo?: string | null;
+  }
+): Promise<ApplicationRow | null> {
+  const objectId = toObjectId(id);
+  if (!objectId) return null;
+
+  const now = new Date();
+
+  const $set: Partial<ApplicationDocument> & { updated_at: Date } = {
+    updated_at: now,
+  };
+
+  if (typeof updates.status !== "undefined") $set.status = updates.status;
+  if (typeof updates.memo !== "undefined") $set.memo = updates.memo ?? null;
+
+  if (typeof updates.appliedAt !== "undefined") {
+    $set.applied_at = updates.appliedAt ? new Date(updates.appliedAt) : null;
+  }
+
+  const { db } = await connectToDatabase();
+
+  const result = await db
+    .collection<ApplicationDocument>("applications")
+    .updateOne({ _id: objectId, user_id: userId }, { $set });
+
+  if (result.matchedCount === 0) return null;
+
+  const updated = await db
+    .collection<ApplicationDocument>("applications")
+    .findOne({ _id: objectId, user_id: userId });
+
+  if (!updated) return null;
+  return toRow(updated);
+}
+
+export async function deleteApplicationById(
+  userId: string,
+  id: string
+): Promise<boolean | null> {
+  const objectId = toObjectId(id);
+  if (!objectId) return null;
+
+  const { db } = await connectToDatabase();
+
+  const result = await db
+    .collection<ApplicationDocument>("applications")
+    .deleteOne({ _id: objectId, user_id: userId });
+
+  return result.deletedCount > 0;
 }
