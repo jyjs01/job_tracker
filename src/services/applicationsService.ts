@@ -70,18 +70,24 @@ export async function getApplicationById(
   userId: string,
   id: string
 ): Promise<ApplicationRow | null> {
-  const objectId = toObjectId(id);
-  if (!objectId) return null;
-
   const { db } = await connectToDatabase();
 
-  const doc = await db
-    .collection<ApplicationDocument>("applications")
-    .findOne({ _id: objectId, user_id: userId });
+  if (ObjectId.isValid(id)) {
+    const byId = await db
+      .collection<ApplicationDocument>("applications")
+      .findOne({ _id: new ObjectId(id), user_id: userId });
 
-  if (!doc) return null;
-  return toRow(doc);
+    if (byId) return toRow(byId);
+  }
+
+  const byJobPosting = await db
+    .collection<ApplicationDocument>("applications")
+    .findOne({ job_posting_id: id, user_id: userId });
+
+  if (!byJobPosting) return null;
+  return toRow(byJobPosting);
 }
+
 
 export async function updateApplicationById(
   userId: string,

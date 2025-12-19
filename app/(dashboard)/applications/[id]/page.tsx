@@ -289,141 +289,154 @@ export default function ApplicationDetailPage() {
         </div>
       </div>
 
-      <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
-          <div className="lg:col-span-8">
-            <p className="text-[11px] font-medium text-slate-500">회사명</p>
-            <div className={`mt-2 ${readOnlyBox}`}>
-              <span className="truncate">{companyName || "-"}</span>
-            </div>
-          </div>
+      <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-12">
+        {/* 통합 지원 정보 */}
+        <section className="lg:col-span-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="text-sm font-semibold text-slate-900">지원 정보</div>
 
-          <div className="lg:col-span-4">
-            <FilterSelect
-              label="지원 상태"
-              value={status}
-              onChange={(e) => setStatus(e.target.value as ApplicationStatus)}
-              disabled={!isEditing}
-            >
-              {STATUS_OPTIONS.map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-            </FilterSelect>
-          </div>
-
-          <div className="lg:col-span-8">
-            <p className="text-[11px] font-medium text-slate-500">포지션</p>
-            <div className={`mt-2 ${readOnlyBox}`}>
-              <span className="truncate">{position || "-"}</span>
-            </div>
-          </div>
-
-          <div className="lg:col-span-12">
-            <p className="text-[11px] font-medium text-slate-500">공고 링크</p>
-            <div className="mt-2 flex items-center gap-2">
-              <div className={readOnlyBox}>
-                <span className="truncate">{jobUrl || "-"}</span>
+          <div className="mt-5 grid grid-cols-1 gap-4 lg:grid-cols-12">
+            <div className="lg:col-span-8">
+              <p className="text-[11px] font-medium text-slate-500">회사명</p>
+              <div className={`mt-2 ${readOnlyBox}`}>
+                <span className="truncate">{companyName || "-"}</span>
               </div>
-              <a
-                href={jobUrl || "#"}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
-                aria-label="open-link"
+            </div>
+
+            <div className="lg:col-span-4">
+              <FilterSelect
+                label="지원 상태"
+                value={status}
+                onChange={(e) => setStatus(e.target.value as ApplicationStatus)}
+                disabled={!isEditing}
               >
-                ↗
-              </a>
+                {STATUS_OPTIONS.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </FilterSelect>
             </div>
-          </div>
 
-          <div className="lg:col-span-6">
-            <p className="text-[11px] font-medium text-slate-500">지원 날짜</p>
-            <Input
-              type="date"
-              value={appliedAt}
-              onChange={(e) => setAppliedAt(e.target.value)}
-              className="mt-2 disabled:bg-slate-50 disabled:text-slate-500"
-              disabled={!isEditing}
-            />
-          </div>
-
-          <div className="lg:col-span-12">
-            <p className="text-[11px] font-medium text-slate-500">메모</p>
-            <textarea
-              value={memo}
-              onChange={(e) => setMemo(e.target.value)}
-              rows={8}
-              className={
-                "mt-2 w-full resize-none rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none " +
-                "placeholder:text-slate-500 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 " +
-                "disabled:bg-slate-50 disabled:text-slate-500"
-              }
-              disabled={!isEditing}
-            />
-          </div>
-        </div>
-      </section>
-
-      <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-        <div className="flex items-center justify-between">
-          <div className="text-sm font-semibold text-slate-900">
-            면접 및 과제 일정
-          </div>
-          <Button variant="primary" size="md" type="button">
-            + 면접/과제 일정 추가
-          </Button>
-        </div>
-
-        <div className="mt-5 space-y-3">
-          {scheduleItems.map((item) => (
-            <div
-              key={item.id}
-              className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm"
-            >
-              <div className="flex items-start justify-between gap-4">
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className={badgeStyle(item.type)}>{item.badge}</span>
-                    <span className="text-xs font-medium text-slate-500">
-                      {item.dateText}
-                    </span>
-                  </div>
-
-                  <div className="mt-2 text-sm font-semibold text-slate-900">
-                    {item.title}
-                  </div>
-
-                  {item.meta && (
-                    <div className="mt-1 text-xs text-slate-500">
-                      {item.meta}
-                    </div>
-                  )}
-
-                  {item.memo && (
-                    <div className="mt-2 text-xs text-slate-600">{item.memo}</div>
-                  )}
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <Button variant="outline" size="sm" type="button" aria-label="edit">
-                    ✎
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    type="button"
-                    aria-label="delete"
-                  >
-                    🗑
-                  </Button>
-                </div>
+            <div className="lg:col-span-12">
+              <p className="text-[11px] font-medium text-slate-500">포지션</p>
+              <div className={`mt-2 ${readOnlyBox}`}>
+                <span className="truncate">{position || "-"}</span>
               </div>
             </div>
-          ))}
-        </div>
-      </section>
+
+            <div className="lg:col-span-12">
+              <p className="text-[11px] font-medium text-slate-500">공고 링크</p>
+              <div className="mt-2 flex items-center gap-2">
+                <div className={readOnlyBox}>
+                  <span className="truncate">{jobUrl || "-"}</span>
+                </div>
+                <a
+                  href={jobUrl || "#"}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                  aria-label="open-link"
+                >
+                  ↗
+                </a>
+              </div>
+            </div>
+
+            <div className="lg:col-span-6">
+              <p className="text-[11px] font-medium text-slate-500">지원 날짜</p>
+              <Input
+                type="date"
+                value={appliedAt}
+                onChange={(e) => setAppliedAt(e.target.value)}
+                className="mt-2 disabled:bg-slate-50 disabled:text-slate-500"
+                disabled={!isEditing}
+              />
+            </div>
+
+            <div className="lg:col-span-12">
+              <p className="text-[11px] font-medium text-slate-500">메모</p>
+              <textarea
+                value={memo}
+                onChange={(e) => setMemo(e.target.value)}
+                rows={8}
+                className={
+                  "mt-2 w-full resize-none rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none " +
+                  "placeholder:text-slate-500 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 " +
+                  "disabled:bg-slate-50 disabled:text-slate-500"
+                }
+                disabled={!isEditing}
+              />
+            </div>
+          </div>
+        </section>
+
+        {/* 면접/과제 일정 */}
+        <section className="lg:col-span-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="flex items-center justify-between">
+            <div className="text-sm font-semibold text-slate-900">
+              면접 및 과제 일정
+            </div>
+            <Button variant="primary" size="md" type="button">
+              + 면접/과제 일정 추가
+            </Button>
+          </div>
+
+          <div className="mt-5 space-y-3">
+            {scheduleItems.map((item) => (
+              <div
+                key={item.id}
+                className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm"
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className={badgeStyle(item.type)}>{item.badge}</span>
+                      <span className="text-xs font-medium text-slate-500">
+                        {item.dateText}
+                      </span>
+                    </div>
+
+                    <div className="mt-2 text-sm font-semibold text-slate-900">
+                      {item.title}
+                    </div>
+
+                    {item.meta && (
+                      <div className="mt-1 text-xs text-slate-500">
+                        {item.meta}
+                      </div>
+                    )}
+
+                    {item.memo && (
+                      <div className="mt-2 text-xs text-slate-600">
+                        {item.memo}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      type="button"
+                      aria-label="edit"
+                    >
+                      ✎
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      type="button"
+                      aria-label="delete"
+                    >
+                      🗑
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      </div>
     </main>
   );
 }
