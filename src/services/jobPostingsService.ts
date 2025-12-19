@@ -46,6 +46,9 @@ export async function createJobPosting(input: CreateJobPostingInput) {
   const doc: JobPostingDocument = {
     userId: input.userId,
     title: input.title,
+    companyName: input.companyName,
+    companyIndustry: input.companyIndustry,
+    companyHomepageUrl: input.companyHomepageUrl,
     position: input.position,
     career: input.career,
     salary: input.salary,
@@ -96,9 +99,10 @@ export async function getJobPostingById(id: string) {
 }
 
 
-export type UpdateJobPostingInput = Partial<CreateJobPostingInput>;
 
 // 채용 공고 수정
+export type UpdateJobPostingInput = Partial<CreateJobPostingInput>;
+
 export async function updateJobPosting(
   id: string,
   input: UpdateJobPostingInput,
@@ -111,6 +115,18 @@ export async function updateJobPosting(
 
   if (typeof input.title === "string") {
     set.title = input.title;
+  }
+  if (typeof input.companyName === "string") {
+    set.companyName = input.companyName;
+  }
+  if (typeof input.companyIndustry === "string" || input.companyIndustry === null) {
+    set.companyIndustry = input.companyIndustry ?? undefined;
+  }
+  if (
+    typeof input.companyHomepageUrl === "string" ||
+    input.companyHomepageUrl === null
+  ) {
+    set.companyHomepageUrl = input.companyHomepageUrl ?? undefined;
   }
   if (typeof input.position === "string" || input.position === null) {
     set.position = input.position ?? undefined;

@@ -7,6 +7,14 @@ export const jobPostingFormSchema = z.object({
   location: z.string().min(1, "근무 지역을 입력해주세요."),
   responsibilities: z.string().min(1, "주요 업무를 입력해주세요."),
   requirements: z.string().min(1, "지원 요건을 입력해주세요."),
+  companyName: z.string().min(1, "회사명은 필수입니다."),
+  companyIndustry: z.string().optional(),
+  companyHomepageUrl: z
+    .string()
+    .url("유효한 URL 형식이 아닙니다.")
+    .optional()
+    .or(z.literal("")),
+
   preferred: z.string().optional(),
   benefits: z.string().optional(),
   career: z.string().optional(),
