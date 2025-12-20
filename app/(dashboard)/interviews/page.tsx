@@ -1,22 +1,97 @@
-// app/(dashboard)/interviews/page.tsx
 "use client";
 
-import { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
+import axios, { AxiosError } from "axios";
+import Link from "next/link";
 import Button from "@/src/components/ui/Button";
 
 type PeriodFilter = "today" | "week" | "month";
 type ResultFilter = "all" | "scheduled" | "pass" | "fail";
 
+type InterviewStatus = "예정" | "합격" | "불합격";
+
+type InterviewRow = {
+  id: string;
+  userId: string;
+  jobPostingId: string;
+  applicationId: string;
+  type: string;
+  scheduledAt: string | null;
+  location: string | null;
+  status: InterviewStatus;
+  memo: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+type JobPostingRow = {
+  id: string;
+  companyName?: string | null;
+  position?: string | null;
+  title?: string | null;
+};
+
 type ScheduleItem = {
   id: string;
+  scheduledAt: string; // ISO (필터링 기준)
   date: string; // YYYY.MM.DD
   time: string; // HH:mm
   company: string;
   position: string;
   roundOrType: string; // 1차 면접 / 코딩테스트 / 과제 발표 ...
   place: "online" | "offline";
-  status: "예정" | "합격" | "불합격";
+  status: InterviewStatus;
 };
+
+type FieldErrors = Record<string, string[]>;
+type ApiErrorResponse = {
+  error?: string;
+  fieldErrors?: FieldErrors;
+  formErrors?: string[];
+  details?: {
+    fieldErrors?: FieldErrors;
+    formErrors?: string[];
+  };
+};
+
+type InterviewsSuccess = { data: InterviewRow[] };
+type JobPostingsSuccess = { data: JobPostingRow[] };
+
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === "object" && v !== null;
+}
+function isStringArray(v: unknown): v is string[] {
+  return Array.isArray(v) && v.every((x) => typeof x === "string");
+}
+function isFieldErrors(v: unknown): v is FieldErrors {
+  if (!isRecord(v)) return false;
+  return Object.values(v).every((arr) => isStringArray(arr));
+}
+
+function pickErrorMessage(data: unknown): string {
+  if (!isRecord(data)) return "요청 처리 중 오류가 발생했습니다.";
+
+  if (typeof data.error === "string" && data.error.trim()) return data.error;
+
+  if (isFieldErrors(data.fieldErrors)) {
+    const firstKey = Object.keys(data.fieldErrors)[0];
+    const firstMsg = firstKey ? data.fieldErrors[firstKey]?.[0] : undefined;
+    if (firstMsg) return firstMsg;
+  }
+  if (isStringArray(data.formErrors) && data.formErrors[0]) return data.formErrors[0];
+
+  const details = data.details;
+  if (isRecord(details)) {
+    if (isFieldErrors(details.fieldErrors)) {
+      const firstKey = Object.keys(details.fieldErrors)[0];
+      const firstMsg = firstKey ? details.fieldErrors[firstKey]?.[0] : undefined;
+      if (firstMsg) return firstMsg;
+    }
+    if (isStringArray(details.formErrors) && details.formErrors[0]) return details.formErrors[0];
+  }
+
+  return "요청 처리 중 오류가 발생했습니다.";
+}
 
 function formatDotDate(d: Date) {
   const y = d.getFullYear();
@@ -25,73 +100,10 @@ function formatDotDate(d: Date) {
   return `${y}.${m}.${day}`;
 }
 
-function addDays(base: Date, days: number) {
-  const d = new Date(base);
-  d.setDate(d.getDate() + days);
-  return d;
-}
-
-// "오늘" 기준으로 더미 일정 생성 (항상 이번 주/달에 걸리도록)
-const base = new Date();
-
-const schedules: ScheduleItem[] = [
-  {
-    id: "1",
-    date: formatDotDate(addDays(base, 0)),
-    time: "14:00",
-    company: "카카오",
-    position: "프론트엔드 개발자",
-    roundOrType: "1차 면접",
-    place: "online",
-    status: "예정",
-  },
-  {
-    id: "2",
-    date: formatDotDate(addDays(base, 2)),
-    time: "10:00",
-    company: "네이버",
-    position: "백엔드 개발자",
-    roundOrType: "코딩테스트",
-    place: "offline",
-    status: "예정",
-  },
-  {
-    id: "3",
-    date: formatDotDate(addDays(base, 5)),
-    time: "15:30",
-    company: "토스",
-    position: "풀스택 개발자",
-    roundOrType: "2차 면접",
-    place: "online",
-    status: "예정",
-  },
-  {
-    id: "4",
-    date: formatDotDate(addDays(base, 8)),
-    time: "11:00",
-    company: "쿠팡",
-    position: "데이터 엔지니어",
-    roundOrType: "과제 발표",
-    place: "offline",
-    status: "예정",
-  },
-  {
-    id: "5",
-    date: formatDotDate(addDays(base, 12)),
-    time: "16:00",
-    company: "라인",
-    position: "모바일 개발자",
-    roundOrType: "최종 면접",
-    place: "online",
-    status: "예정",
-  },
-];
-
-function parseKoreanDate(dateStr: string) {
-  // "2025.01.15" or "2025-01-15" -> Date
-  const normalized = dateStr.replaceAll(".", "-");
-  const [y, m, d] = normalized.split("-").map((v) => Number(v));
-  return new Date(y, m - 1, d);
+function formatTimeHHmm(d: Date) {
+  const hh = String(d.getHours()).padStart(2, "0");
+  const mm = String(d.getMinutes()).padStart(2, "0");
+  return `${hh}:${mm}`;
 }
 
 function startOfDay(d: Date) {
@@ -129,6 +141,14 @@ function endOfMonth(d: Date) {
   return endOfDay(new Date(d.getFullYear(), d.getMonth() + 1, 0));
 }
 
+function inferPlace(location: string | null) {
+  if (!location || !location.trim()) return "online" as const;
+
+  const v = location.toLowerCase();
+  const onlineHints = ["http://", "https://", "zoom", "meet.google", "teams", "webex", "discord"];
+  return onlineHints.some((h) => v.includes(h)) ? ("online" as const) : ("offline" as const);
+}
+
 function StatusBadge({ status }: { status: ScheduleItem["status"] }) {
   const cls =
     status === "예정"
@@ -138,9 +158,7 @@ function StatusBadge({ status }: { status: ScheduleItem["status"] }) {
       : "bg-rose-50 text-rose-700";
 
   return (
-    <span
-      className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${cls}`}
-    >
+    <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${cls}`}>
       {status}
     </span>
   );
@@ -186,6 +204,76 @@ export default function InterviewsPage() {
   const [period, setPeriod] = useState<PeriodFilter>("today");
   const [result, setResult] = useState<ResultFilter>("scheduled");
 
+  const [items, setItems] = useState<ScheduleItem[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const run = async () => {
+      setLoadError(null);
+      setLoading(true);
+
+      try {
+        const [interviewsRes, jobPostingsRes] = await Promise.all([
+          axios.get<InterviewsSuccess>("/api/interviews"),
+          axios.get<JobPostingsSuccess>("/api/job-postings"),
+        ]);
+
+        const interviews = interviewsRes.data.data;
+        const jobPostings = jobPostingsRes.data.data;
+
+        const jobPostingMap = new Map<string, JobPostingRow>();
+        jobPostings.forEach((jp) => jobPostingMap.set(jp.id, jp));
+
+        const mapped: ScheduleItem[] = interviews
+          .filter((it) => !!it.scheduledAt) // scheduledAt null이면 목록에서 제외 (현재 생성페이지에서 필수라 사실상 없음)
+          .map((it) => {
+            const jp = jobPostingMap.get(it.jobPostingId);
+            const d = new Date(it.scheduledAt as string);
+
+            const company = (jp?.companyName ?? "회사").trim();
+            const position = (jp?.position ?? jp?.title ?? "-").trim();
+
+            return {
+              id: it.id,
+              scheduledAt: it.scheduledAt as string,
+              date: formatDotDate(d),
+              time: formatTimeHHmm(d),
+              company,
+              position,
+              roundOrType: it.type,
+              place: inferPlace(it.location),
+              status: it.status,
+            };
+          });
+
+        // 시간순 정렬
+        mapped.sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime());
+
+        if (!mounted) return;
+        setItems(mapped);
+      } catch (err) {
+        const ax = err as AxiosError<ApiErrorResponse>;
+        if (!mounted) return;
+
+        if (ax.response?.status === 401) {
+          setLoadError("로그인이 필요합니다.");
+        } else {
+          setLoadError(pickErrorMessage(ax.response?.data));
+        }
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    };
+
+    run();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
   const filtered = useMemo(() => {
     const now = new Date();
     const range =
@@ -195,9 +283,9 @@ export default function InterviewsPage() {
         ? { from: startOfWeekMonday(now), to: endOfWeekSunday(now) }
         : { from: startOfMonth(now), to: endOfMonth(now) };
 
-    return schedules
+    return items
       .filter((s) => {
-        const d = parseKoreanDate(s.date);
+        const d = new Date(s.scheduledAt);
         return d >= range.from && d <= range.to;
       })
       .filter((s) => {
@@ -206,16 +294,22 @@ export default function InterviewsPage() {
         if (result === "pass") return s.status === "합격";
         return s.status === "불합격";
       });
-  }, [period, result]);
+  }, [items, period, result]);
 
   return (
     <div className="p-6">
       <div className="mx-auto w-full max-w-6xl">
-        <header className="mb-6">
-          <h1 className="text-lg font-semibold text-slate-900">면접/과제 일정</h1>
-          <p className="mt-1 text-xs text-slate-500">
-            앞으로의 면접 및 과제 일정을 확인하세요
-          </p>
+        <header className="mb-6 flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-lg font-semibold text-slate-900">면접/과제 일정</h1>
+            <p className="mt-1 text-xs text-slate-500">
+              앞으로의 면접 및 과제 일정을 확인하세요
+            </p>
+          </div>
+
+          <Link href="/interviews/create">
+            <Button>일정 추가</Button>
+          </Link>
         </header>
 
         <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -289,6 +383,12 @@ export default function InterviewsPage() {
             </div>
           </div>
 
+          {loadError ? (
+            <div className="mt-5 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+              {loadError}
+            </div>
+          ) : null}
+
           <div className="mt-5 overflow-x-auto rounded-xl border border-slate-200">
             <table className="w-full min-w-[900px]">
               <thead className="bg-slate-50">
@@ -302,12 +402,15 @@ export default function InterviewsPage() {
               </thead>
 
               <tbody className="divide-y divide-slate-200">
-                {filtered.length === 0 ? (
+                {loading ? (
                   <tr>
-                    <td
-                      colSpan={5}
-                      className="px-5 py-10 text-center text-sm text-slate-500"
-                    >
+                    <td colSpan={5} className="px-5 py-10 text-center text-sm text-slate-500">
+                      일정을 불러오는 중입니다...
+                    </td>
+                  </tr>
+                ) : filtered.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="px-5 py-10 text-center text-sm text-slate-500">
                       조건에 맞는 일정이 없습니다.
                     </td>
                   </tr>
@@ -315,19 +418,13 @@ export default function InterviewsPage() {
                   filtered.map((item) => (
                     <tr key={item.id} className="bg-white">
                       <td className="px-5 py-5">
-                        <div className="text-sm font-semibold text-slate-900">
-                          {item.date}
-                        </div>
+                        <div className="text-sm font-semibold text-slate-900">{item.date}</div>
                         <div className="text-xs text-slate-500">{item.time}</div>
                       </td>
 
                       <td className="px-5 py-5">
-                        <div className="text-sm font-semibold text-slate-900">
-                          {item.company}
-                        </div>
-                        <div className="text-xs text-slate-500">
-                          {item.position}
-                        </div>
+                        <div className="text-sm font-semibold text-slate-900">{item.company}</div>
+                        <div className="text-xs text-slate-500">{item.position}</div>
                       </td>
 
                       <td className="px-5 py-5">

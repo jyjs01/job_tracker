@@ -1,62 +1,38 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import axios, { AxiosError } from "axios";
 import Button from "@/src/components/ui/Button";
 import Input from "@/src/components/ui/Input";
 
 type InterviewStatus = "예정" | "합격" | "불합격";
 
-type JobPosting = {
-  id: string; // 실제 DB에선 int
-  company_name: string;
-  position: string;
-  title: string;
+// job-postings 응답 row (필요 필드만)
+type JobPostingRow = {
+  id: string;
+  title?: string | null;
+  position?: string | null;
+  companyName?: string | null;
 };
 
-type Application = {
-  id: string; // 실제 DB에선 int
-  job_posting_id: string;
+// applications 응답 row (src/types/applications.ts 형태)
+type ApplicationRow = {
+  id: string;
+  jobPostingId: string;
   status: string;
-  current_step: string;
+  appliedAt: string | null;
 };
 
 type InterviewFormState = {
-  job_posting_id: string; // interviews.job_posting_id (NN)
-  application_id: string; // interviews.application_id (NN)
-  type: string; // interviews.type
-  scheduled_at: string; // interviews.scheduled_at (timestamp) -> datetime-local
-  location: string; // interviews.location
-  status: InterviewStatus; // interviews.status
-  memo: string; // interviews.memo
+  jobPostingId: string;
+  applicationId: string;
+  type: string;
+  scheduledAt: string; 
+  location: string;
+  status: InterviewStatus;
+  memo: string;
 };
-
-const mockJobPostings: JobPosting[] = [
-  {
-    id: "101",
-    company_name: "카카오",
-    position: "프론트엔드 개발자",
-    title: "FE Engineer",
-  },
-  {
-    id: "102",
-    company_name: "네이버",
-    position: "백엔드 개발자",
-    title: "Backend Engineer",
-  },
-  {
-    id: "103",
-    company_name: "토스",
-    position: "풀스택 개발자",
-    title: "Fullstack Engineer",
-  },
-];
-
-const mockApplications: Application[] = [
-  { id: "201", job_posting_id: "101", status: "진행중", current_step: "서류" },
-  { id: "202", job_posting_id: "101", status: "진행중", current_step: "1차 면접" },
-  { id: "203", job_posting_id: "102", status: "진행중", current_step: "코딩테스트" },
-  { id: "204", job_posting_id: "103", status: "진행중", current_step: "2차 면접" },
-];
 
 const typePresets = [
   "1차 면접",
@@ -74,16 +50,91 @@ function toPreviewDateTime(datetimeLocal: string) {
   return `${date.replaceAll("-", ".")} ${time}`;
 }
 
+function toServerIso(datetimeLocal: string) {
+  if (!datetimeLocal) return null;
+  const d = new Date(datetimeLocal);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toISOString();
+}
+
+type FieldErrors = Record<string, string[]>;
+type ApiErrorResponse = {
+  error?: string;
+  fieldErrors?: FieldErrors;
+  formErrors?: string[];
+  details?: {
+    fieldErrors?: FieldErrors;
+    formErrors?: string[];
+  };
+};
+
+type JobPostingsSuccess = { data: JobPostingRow[] };
+type ApplicationsSuccess = { data: ApplicationRow[] };
+
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === "object" && v !== null;
+}
+
+function isStringArray(v: unknown): v is string[] {
+  return Array.isArray(v) && v.every((x) => typeof x === "string");
+}
+
+function isFieldErrors(v: unknown): v is FieldErrors {
+  if (!isRecord(v)) return false;
+  return Object.values(v).every((arr) => isStringArray(arr));
+}
+
+function pickErrorMessage(data: unknown): string {
+  if (!isRecord(data)) return "요청 처리 중 오류가 발생했습니다.";
+
+  // { error }
+  if (typeof data.error === "string" && data.error.trim()) return data.error;
+
+  // { fieldErrors, formErrors }
+  if (isFieldErrors(data.fieldErrors)) {
+    const firstKey = Object.keys(data.fieldErrors)[0];
+    const firstMsg = firstKey ? data.fieldErrors[firstKey]?.[0] : undefined;
+    if (firstMsg) return firstMsg;
+  }
+
+  if (isStringArray(data.formErrors) && data.formErrors[0]) return data.formErrors[0];
+
+  // { details: { fieldErrors, formErrors } }
+  const details = data.details;
+  if (isRecord(details)) {
+    if (isFieldErrors(details.fieldErrors)) {
+      const firstKey = Object.keys(details.fieldErrors)[0];
+      const firstMsg = firstKey ? details.fieldErrors[firstKey]?.[0] : undefined;
+      if (firstMsg) return firstMsg;
+    }
+    if (isStringArray(details.formErrors) && details.formErrors[0]) return details.formErrors[0];
+  }
+
+  return "요청 처리 중 오류가 발생했습니다.";
+}
+
 export default function InterviewCreatePage() {
+  const router = useRouter();
+
   const [form, setForm] = useState<InterviewFormState>({
-    job_posting_id: mockJobPostings[0]?.id ?? "",
-    application_id: "",
+    jobPostingId: "",
+    applicationId: "",
     type: "1차 면접",
-    scheduled_at: "",
+    scheduledAt: "",
     location: "",
     status: "예정",
     memo: "",
   });
+
+  const [jobPostings, setJobPostings] = useState<JobPostingRow[]>([]);
+  const [applications, setApplications] = useState<ApplicationRow[]>([]);
+
+  const [loadingJobPostings, setLoadingJobPostings] = useState(false);
+  const [loadingApplications, setLoadingApplications] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  const [pageError, setPageError] = useState<string | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const onChange = <K extends keyof InterviewFormState>(
     key: K,
@@ -92,46 +143,144 @@ export default function InterviewCreatePage() {
     setForm((prev) => ({ ...prev, [key]: value }));
   };
 
-  const selectedJobPosting = useMemo(() => {
-    return mockJobPostings.find((jp) => jp.id === form.job_posting_id) ?? null;
-  }, [form.job_posting_id]);
+  // job postings 로드
+  useEffect(() => {
+    let mounted = true;
 
-  const applicationsForSelectedPosting = useMemo(() => {
-    if (!form.job_posting_id) return [];
-    return mockApplications.filter((a) => a.job_posting_id === form.job_posting_id);
-  }, [form.job_posting_id]);
+    const run = async () => {
+      setPageError(null);
+      setLoadingJobPostings(true);
 
-  const effectiveApplicationId = useMemo(() => {
-    const exists = applicationsForSelectedPosting.some((a) => a.id === form.application_id);
-    if (exists) return form.application_id;
-    return applicationsForSelectedPosting[0]?.id ?? "";
-  }, [applicationsForSelectedPosting, form.application_id]);
+      try {
+        const res = await axios.get<JobPostingsSuccess>("/api/job-postings");
+        const list = res.data.data;
 
-  const selectedApplication = useMemo(() => {
-    return applicationsForSelectedPosting.find((a) => a.id === effectiveApplicationId) ?? null;
-  }, [applicationsForSelectedPosting, effectiveApplicationId]);
+        if (!mounted) return;
 
-  const canSubmit =
-    form.job_posting_id.trim().length > 0 &&
-    effectiveApplicationId.trim().length > 0 &&
-    form.type.trim().length > 0 &&
-    form.scheduled_at.trim().length > 0;
+        setJobPostings(list);
 
-  const onSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+        setForm((prev) => ({
+          ...prev,
+          jobPostingId: prev.jobPostingId || list[0]?.id || "",
+        }));
+      } catch (err) {
+        const ax = err as AxiosError<ApiErrorResponse>;
+        if (!mounted) return;
 
-    const payload = {
-      job_posting_id: form.job_posting_id,
-      application_id: effectiveApplicationId,
-      type: form.type,
-      scheduled_at: form.scheduled_at,
-      location: form.location,
-      status: form.status,
-      memo: form.memo,
+        if (ax.response?.status === 401) {
+          setPageError("로그인이 필요합니다.");
+        } else {
+          setPageError(pickErrorMessage(ax.response?.data));
+        }
+      } finally {
+        if (mounted) setLoadingJobPostings(false);
+      }
     };
 
-    console.log("CREATE interview payload:", payload);
-    alert("저장 클릭 (API 연동은 추후)");
+    run();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  // applications 로드 (라우트가 전체 반환)
+  useEffect(() => {
+    let mounted = true;
+
+    const run = async () => {
+      setLoadingApplications(true);
+
+      try {
+        const res = await axios.get<ApplicationsSuccess>("/api/applications");
+        const list = res.data.data;
+
+        if (!mounted) return;
+        setApplications(list);
+      } catch (err) {
+        const ax = err as AxiosError<ApiErrorResponse>;
+        if (!mounted) return;
+
+        if (ax.response?.status === 401) {
+          setPageError("로그인이 필요합니다.");
+        } else {
+          setPageError(pickErrorMessage(ax.response?.data));
+        }
+      } finally {
+        if (mounted) setLoadingApplications(false);
+      }
+    };
+
+    run();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const filteredApplications = useMemo(() => {
+    if (!form.jobPostingId) return [];
+    return applications.filter((a) => a.jobPostingId === form.jobPostingId);
+  }, [applications, form.jobPostingId]);
+
+  // 공고 변경/앱 로드 후 applicationId 자동 보정
+  useEffect(() => {
+    setForm((prev) => {
+      if (!prev.jobPostingId) return { ...prev, applicationId: "" };
+
+      const exists = filteredApplications.some((a) => a.id === prev.applicationId);
+      if (exists) return prev;
+
+      return { ...prev, applicationId: filteredApplications[0]?.id ?? "" };
+    });
+  }, [filteredApplications]);
+
+  const selectedJobPosting = useMemo(() => {
+    return jobPostings.find((jp) => jp.id === form.jobPostingId) ?? null;
+  }, [jobPostings, form.jobPostingId]);
+
+  const selectedApplication = useMemo(() => {
+    return filteredApplications.find((a) => a.id === form.applicationId) ?? null;
+  }, [filteredApplications, form.applicationId]);
+
+  const canSubmit =
+    form.jobPostingId.trim().length > 0 &&
+    form.applicationId.trim().length > 0 &&
+    form.type.trim().length > 0 &&
+    form.scheduledAt.trim().length > 0;
+
+  const disabledAll = loadingJobPostings || loadingApplications || submitting;
+
+  const onSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitError(null);
+
+    if (!canSubmit || submitting) return;
+
+    setSubmitting(true);
+    try {
+      const payload = {
+        jobPostingId: form.jobPostingId,
+        applicationId: form.applicationId,
+        type: form.type,
+        scheduledAt: toServerIso(form.scheduledAt),
+        location: form.location.trim() ? form.location.trim() : null,
+        status: form.status,
+        memo: form.memo.trim() ? form.memo.trim() : null,
+      };
+
+      await axios.post("/api/interviews", payload);
+
+      router.push("/interviews");
+      router.refresh();
+    } catch (err) {
+      const ax = err as AxiosError<ApiErrorResponse>;
+      if (ax.response?.status === 401) {
+        setSubmitError("로그인이 필요합니다.");
+      } else {
+        setSubmitError(pickErrorMessage(ax.response?.data));
+      }
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -151,62 +300,99 @@ export default function InterviewCreatePage() {
           {/* 상단 액션 */}
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="text-xs text-slate-500">
-              필수 항목을 입력한 뒤 저장하세요.
+              필수 항목(공고, 지원 이력, 일정)을 입력한 뒤 저장하세요.
             </div>
 
             <div className="flex items-center gap-2">
-              <Button type="button" variant="ghost">
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => router.back()}
+                disabled={disabledAll}
+                className="disabled:cursor-not-allowed disabled:opacity-50"
+              >
                 취소
               </Button>
-              <Button type="submit" variant="primary" disabled={!canSubmit}>
-                저장
+              <Button
+                type="submit"
+                variant="primary"
+                disabled={!canSubmit || disabledAll}
+                className="disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {submitting ? "저장 중..." : "저장"}
               </Button>
             </div>
           </div>
 
+          {pageError ? (
+            <div className="mt-4 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+              {pageError}
+            </div>
+          ) : null}
+
+          {submitError ? (
+            <div className="mt-4 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+              {submitError}
+            </div>
+          ) : null}
+
           <div className="mt-6 grid grid-cols-1 gap-4">
-            {/* job_posting_id */}
+            {/* 공고 */}
             <div>
-              <label className="text-xs font-semibold text-slate-700">
-                공고 선택
-              </label>
+              <label className="text-xs font-semibold text-slate-700">공고 선택</label>
+
               <select
-                value={form.job_posting_id}
+                value={form.jobPostingId}
                 onChange={(e) => {
-                  onChange("job_posting_id", e.target.value);
-                  onChange("application_id", "");
+                  onChange("jobPostingId", e.target.value);
+                  onChange("applicationId", "");
                 }}
-                className="mt-2 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                disabled={disabledAll}
+                className="mt-2 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {mockJobPostings.map((jp) => (
-                  <option key={jp.id} value={jp.id}>
-                    {jp.company_name} · {jp.position}
-                  </option>
-                ))}
+                {loadingJobPostings ? (
+                  <option value="">공고 불러오는 중...</option>
+                ) : jobPostings.length === 0 ? (
+                  <option value="">등록된 공고가 없습니다</option>
+                ) : (
+                  jobPostings.map((jp) => (
+                    <option key={jp.id} value={jp.id}>
+                      {(jp.companyName ?? "회사").trim()} ·{" "}
+                      {(jp.position ?? jp.title ?? "공고").trim()}
+                    </option>
+                  ))
+                )}
               </select>
+
               {selectedJobPosting ? (
                 <p className="mt-2 text-[11px] text-slate-500">
-                  선택됨: <span className="font-semibold">{selectedJobPosting.title}</span>
+                  선택됨:{" "}
+                  <span className="font-semibold">
+                    {selectedJobPosting.title || selectedJobPosting.position || "-"}
+                  </span>
                 </p>
               ) : null}
             </div>
 
-            {/* application_id */}
+            {/* 지원 이력 */}
             <div>
-              <label className="text-xs font-semibold text-slate-700">
-                지원 이력 선택
-              </label>
+              <label className="text-xs font-semibold text-slate-700">지원 이력 선택</label>
+
               <select
-                value={effectiveApplicationId}
-                onChange={(e) => onChange("application_id", e.target.value)}
-                className="mt-2 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                value={form.applicationId}
+                onChange={(e) => onChange("applicationId", e.target.value)}
+                disabled={disabledAll || !form.jobPostingId}
+                className="mt-2 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {applicationsForSelectedPosting.length === 0 ? (
+                {loadingApplications ? (
+                  <option value="">지원 이력 불러오는 중...</option>
+                ) : filteredApplications.length === 0 ? (
                   <option value="">해당 공고에 연결된 지원 이력이 없습니다</option>
                 ) : (
-                  applicationsForSelectedPosting.map((a) => (
+                  filteredApplications.map((a) => (
                     <option key={a.id} value={a.id}>
-                      {a.current_step} · {a.status}
+                      {a.status}
+                      {a.appliedAt ? ` · ${a.appliedAt.slice(0, 10)}` : ""}
                     </option>
                   ))
                 )}
@@ -214,21 +400,14 @@ export default function InterviewCreatePage() {
 
               {selectedApplication ? (
                 <p className="mt-2 text-[11px] text-slate-500">
-                  현재 단계:{" "}
-                  <span className="font-semibold">{selectedApplication.current_step}</span>
+                  현재 상태: <span className="font-semibold">{selectedApplication.status}</span>
                 </p>
-              ) : (
-                <p className="mt-2 text-[11px] text-slate-400">
-                  공고에 연결된 지원 이력을 먼저 선택하세요.
-                </p>
-              )}
+              ) : null}
             </div>
 
-            {/* type */}
+            {/* 단계 */}
             <div>
-              <label className="text-xs font-semibold text-slate-700">
-                단계
-              </label>
+              <label className="text-xs font-semibold text-slate-700">단계</label>
 
               <div className="mt-2 flex flex-wrap gap-2">
                 {typePresets.map((p) => (
@@ -238,7 +417,8 @@ export default function InterviewCreatePage() {
                     size="sm"
                     variant={form.type === p ? "primary" : "outline"}
                     onClick={() => onChange("type", p)}
-                    className="rounded-full"
+                    disabled={disabledAll}
+                    className="rounded-full disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {p}
                   </Button>
@@ -246,137 +426,65 @@ export default function InterviewCreatePage() {
               </div>
             </div>
 
-            {/* scheduled_at */}
+            {/* 일정 */}
             <div>
-              <label className="text-xs font-semibold text-slate-700">
-                일정
-              </label>
+              <label className="text-xs font-semibold text-slate-700">일정</label>
               <Input
                 type="datetime-local"
-                value={form.scheduled_at}
-                onChange={(e) => onChange("scheduled_at", e.target.value)}
-                className="mt-2"
+                value={form.scheduledAt}
+                onChange={(e) => onChange("scheduledAt", e.target.value)}
+                disabled={disabledAll}
+                className="mt-2 disabled:cursor-not-allowed disabled:opacity-60"
               />
               <p className="mt-2 text-[11px] text-slate-400">
-                {form.scheduled_at
-                  ? `미리보기: ${toPreviewDateTime(form.scheduled_at)}`
+                {form.scheduledAt
+                  ? `미리보기: ${toPreviewDateTime(form.scheduledAt)}`
                   : "날짜와 시간을 선택하세요."}
               </p>
             </div>
 
-            {/* location */}
+            {/* 장소 */}
             <div>
-              <label className="text-xs font-semibold text-slate-700">
-                장소
-              </label>
+              <label className="text-xs font-semibold text-slate-700">장소</label>
               <Input
                 value={form.location}
                 onChange={(e) => onChange("location", e.target.value)}
                 placeholder="예: Zoom 링크 / 오프라인 주소"
-                className="mt-2"
+                disabled={disabledAll}
+                className="mt-2 disabled:cursor-not-allowed disabled:opacity-60"
               />
             </div>
 
-            {/* status */}
+            {/* 상태 */}
             <div>
-              <label className="text-xs font-semibold text-slate-700">
-                상태
-              </label>
+              <label className="text-xs font-semibold text-slate-700">상태</label>
               <div className="mt-2 flex flex-wrap items-center gap-2">
-                <Button
-                  type="button"
-                  size="sm"
-                  variant={form.status === "예정" ? "primary" : "outline"}
-                  onClick={() => onChange("status", "예정")}
-                >
-                  예정
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant={form.status === "합격" ? "primary" : "outline"}
-                  onClick={() => onChange("status", "합격")}
-                >
-                  합격
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant={form.status === "불합격" ? "primary" : "outline"}
-                  onClick={() => onChange("status", "불합격")}
-                >
-                  불합격
-                </Button>
+                {(["예정", "합격", "불합격"] as InterviewStatus[]).map((s) => (
+                  <Button
+                    key={s}
+                    type="button"
+                    size="sm"
+                    variant={form.status === s ? "primary" : "outline"}
+                    onClick={() => onChange("status", s)}
+                    disabled={disabledAll}
+                    className="disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {s}
+                  </Button>
+                ))}
               </div>
             </div>
 
-            {/* memo */}
+            {/* 메모 */}
             <div>
-              <label className="text-xs font-semibold text-slate-700">
-                메모
-              </label>
+              <label className="text-xs font-semibold text-slate-700">메모</label>
               <textarea
                 value={form.memo}
                 onChange={(e) => onChange("memo", e.target.value)}
                 placeholder="예: 준비 질문, 제출물, 안내사항 등"
-                className="mt-2 min-h-[120px] w-full resize-y rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none placeholder:text-slate-500 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                disabled={disabledAll}
+                className="mt-2 min-h-[120px] w-full resize-y rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none placeholder:text-slate-500 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
               />
-            </div>
-          </div>
-
-          {/* 미리보기 */}
-          <div className="mt-6 rounded-xl border border-slate-200 bg-slate-50 p-4">
-            <p className="text-xs font-semibold text-slate-700">미리보기</p>
-
-            <div className="mt-3 flex flex-col gap-1 text-sm text-slate-700">
-              <span>
-                <span className="text-slate-500">공고:</span>{" "}
-                <span className="font-semibold">
-                  {selectedJobPosting
-                    ? `${selectedJobPosting.company_name} · ${selectedJobPosting.position}`
-                    : "-"}
-                </span>
-              </span>
-
-              <span>
-                <span className="text-slate-500">지원 이력:</span>{" "}
-                <span className="font-semibold">
-                  {selectedApplication
-                    ? `${selectedApplication.current_step} · ${selectedApplication.status}`
-                    : "-"}
-                </span>
-              </span>
-
-              <span>
-                <span className="text-slate-500">타입:</span>{" "}
-                <span className="font-semibold">{form.type || "-"}</span>
-              </span>
-
-              <span>
-                <span className="text-slate-500">일정:</span>{" "}
-                <span className="font-semibold">
-                  {form.scheduled_at ? toPreviewDateTime(form.scheduled_at) : "-"}
-                </span>
-              </span>
-
-              <span>
-                <span className="text-slate-500">장소:</span>{" "}
-                <span className="font-semibold">{form.location || "-"}</span>
-              </span>
-
-              <span>
-                <span className="text-slate-500">상태:</span>{" "}
-                <span className="font-semibold">{form.status}</span>
-              </span>
-            </div>
-
-            <div className="mt-4 flex items-center justify-end gap-2">
-              <Button type="button" variant="outline">
-                임시저장
-              </Button>
-              <Button type="submit" variant="primary" disabled={!canSubmit}>
-                저장
-              </Button>
             </div>
           </div>
         </form>
