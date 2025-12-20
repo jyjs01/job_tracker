@@ -293,9 +293,9 @@ export default function InterviewsPage() {
             <table className="w-full min-w-[900px]">
               <thead className="bg-slate-50">
                 <tr className="text-left text-xs font-semibold text-slate-500">
-                  <th className="w-[160px] px-5 py-4">날짜/시간</th>
+                  <th className="w-40 px-5 py-4">날짜/시간</th>
                   <th className="px-5 py-4">회사명 + 포지션</th>
-                  <th className="w-[160px] px-5 py-4">라운드/타입</th>
+                  <th className="w-40 px-5 py-4">라운드/타입</th>
                   <th className="w-[140px] px-5 py-4">장소</th>
                   <th className="w-[120px] px-5 py-4">상태</th>
                 </tr>
