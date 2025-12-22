@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import axios, { AxiosError } from "axios";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import Button from "@/src/components/ui/Button";
 
 type PeriodFilter = "today" | "week" | "month";
@@ -33,12 +34,12 @@ type JobPostingRow = {
 
 type ScheduleItem = {
   id: string;
-  scheduledAt: string; // ISO (필터링 기준)
-  date: string; // YYYY.MM.DD
-  time: string; // HH:mm
+  scheduledAt: string;
+  date: string;
+  time: string;
   company: string;
   position: string;
-  roundOrType: string; // 1차 면접 / 코딩테스트 / 과제 발표 ...
+  roundOrType: string;
   place: "online" | "offline";
   status: InterviewStatus;
 };
@@ -120,8 +121,8 @@ function endOfDay(d: Date) {
 
 function startOfWeekMonday(d: Date) {
   const nd = startOfDay(d);
-  const day = nd.getDay(); // 0 Sun .. 6 Sat
-  const diffToMonday = (day + 6) % 7; // Mon=0
+  const day = nd.getDay();
+  const diffToMonday = (day + 6) % 7;
   nd.setDate(nd.getDate() - diffToMonday);
   return nd;
 }
@@ -201,6 +202,8 @@ function PlaceIcon({ place }: { place: ScheduleItem["place"] }) {
 }
 
 export default function InterviewsPage() {
+  const router = useRouter();
+
   const [period, setPeriod] = useState<PeriodFilter>("today");
   const [result, setResult] = useState<ResultFilter>("scheduled");
 
@@ -228,7 +231,7 @@ export default function InterviewsPage() {
         jobPostings.forEach((jp) => jobPostingMap.set(jp.id, jp));
 
         const mapped: ScheduleItem[] = interviews
-          .filter((it) => !!it.scheduledAt) // scheduledAt null이면 목록에서 제외 (현재 생성페이지에서 필수라 사실상 없음)
+          .filter((it) => !!it.scheduledAt)
           .map((it) => {
             const jp = jobPostingMap.get(it.jobPostingId);
             const d = new Date(it.scheduledAt as string);
@@ -249,7 +252,6 @@ export default function InterviewsPage() {
             };
           });
 
-        // 시간순 정렬
         mapped.sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime());
 
         if (!mounted) return;
@@ -258,11 +260,8 @@ export default function InterviewsPage() {
         const ax = err as AxiosError<ApiErrorResponse>;
         if (!mounted) return;
 
-        if (ax.response?.status === 401) {
-          setLoadError("로그인이 필요합니다.");
-        } else {
-          setLoadError(pickErrorMessage(ax.response?.data));
-        }
+        if (ax.response?.status === 401) setLoadError("로그인이 필요합니다.");
+        else setLoadError(pickErrorMessage(ax.response?.data));
       } finally {
         if (mounted) setLoading(false);
       }
@@ -296,15 +295,17 @@ export default function InterviewsPage() {
       });
   }, [items, period, result]);
 
+  const goDetail = (id: string) => {
+    router.push(`/interviews/${id}`);
+  };
+
   return (
     <div className="p-6">
       <div className="mx-auto w-full max-w-6xl">
         <header className="mb-6 flex items-start justify-between gap-4">
           <div>
             <h1 className="text-lg font-semibold text-slate-900">면접/과제 일정</h1>
-            <p className="mt-1 text-xs text-slate-500">
-              앞으로의 면접 및 과제 일정을 확인하세요
-            </p>
+            <p className="mt-1 text-xs text-slate-500">앞으로의 면접 및 과제 일정을 확인하세요</p>
           </div>
 
           <Link href="/interviews/create">
@@ -416,7 +417,19 @@ export default function InterviewsPage() {
                   </tr>
                 ) : (
                   filtered.map((item) => (
-                    <tr key={item.id} className="bg-white">
+                    <tr
+                      key={item.id}
+                      className="bg-white cursor-pointer hover:bg-slate-50 focus-within:bg-slate-50"
+                      role="link"
+                      tabIndex={0}
+                      onClick={() => goDetail(item.id)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          goDetail(item.id);
+                        }
+                      }}
+                    >
                       <td className="px-5 py-5">
                         <div className="text-sm font-semibold text-slate-900">{item.date}</div>
                         <div className="text-xs text-slate-500">{item.time}</div>
@@ -444,6 +457,16 @@ export default function InterviewsPage() {
               </tbody>
             </table>
           </div>
+
+          {/* 키보드 포커스 표시 */}
+          <style jsx>{`
+            tr[role="link"]:focus {
+              outline: none;
+            }
+            tr[role="link"]:focus-visible {
+              box-shadow: inset 0 0 0 2px rgba(59, 130, 246, 0.9);
+            }
+          `}</style>
         </section>
       </div>
     </div>
