@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import axios from "axios";
+import axios, { AxiosError } from "axios";
 
 import type { ApplicationRow, ApplicationStatus } from "@/src/types/applications";
 import Button from "@/src/components/ui/Button";
@@ -16,19 +16,38 @@ type JobPostingApiRow = {
   company_name?: string;
   companyName?: string;
   position?: string;
+  title?: string;
   url?: string;
 };
 
-type ScheduleType = "면접" | "과제";
+type InterviewStatus = "예정" | "합격" | "불합격";
 
-type ScheduleItem = {
+type InterviewRow = {
   id: string;
-  type: ScheduleType;
-  badge: string;
-  title: string;
-  dateText: string;
-  meta?: string;
-  memo?: string;
+  userId: string;
+  jobPostingId: string;
+  applicationId: string;
+
+  type: string;
+  scheduledAt: string | null;
+  location: string | null;
+
+  status: InterviewStatus;
+  memo: string | null;
+
+  createdAt: string;
+  updatedAt: string;
+};
+
+type FieldErrors = Record<string, string[]>;
+type ApiErrorResponse = {
+  error?: string;
+  fieldErrors?: FieldErrors;
+  formErrors?: string[];
+  details?: {
+    fieldErrors?: FieldErrors;
+    formErrors?: string[];
+  };
 };
 
 const STATUS_OPTIONS: ApplicationStatus[] = [
@@ -45,11 +64,70 @@ function toDateInputValue(v: string | null) {
   return v.includes("T") ? v.slice(0, 10) : v;
 }
 
-function badgeStyle(type: ScheduleType) {
-  const base =
-    "inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-semibold";
-  if (type === "면접") return `${base} border-blue-200 bg-blue-50 text-blue-700`;
-  return `${base} border-slate-200 bg-slate-50 text-slate-700`;
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === "object" && v !== null;
+}
+function isStringArray(v: unknown): v is string[] {
+  return Array.isArray(v) && v.every((x) => typeof x === "string");
+}
+function isFieldErrors(v: unknown): v is FieldErrors {
+  if (!isRecord(v)) return false;
+  return Object.values(v).every((arr) => isStringArray(arr));
+}
+
+function pickErrorMessage(data: unknown): string {
+  if (!isRecord(data)) return "오류가 발생했습니다.";
+
+  if (typeof data.error === "string" && data.error.trim()) return data.error;
+
+  if (isFieldErrors(data.fieldErrors)) {
+    const firstKey = Object.keys(data.fieldErrors)[0];
+    const firstMsg = firstKey ? data.fieldErrors[firstKey]?.[0] : undefined;
+    if (firstMsg) return firstMsg;
+  }
+
+  if (isStringArray(data.formErrors) && data.formErrors[0]) return data.formErrors[0];
+
+  const details = data.details;
+  if (isRecord(details)) {
+    if (isFieldErrors(details.fieldErrors)) {
+      const firstKey = Object.keys(details.fieldErrors)[0];
+      const firstMsg = firstKey ? details.fieldErrors[firstKey]?.[0] : undefined;
+      if (firstMsg) return firstMsg;
+    }
+    if (isStringArray(details.formErrors) && details.formErrors[0]) return details.formErrors[0];
+  }
+
+  return "오류가 발생했습니다.";
+}
+
+function pad2(n: number) {
+  return String(n).padStart(2, "0");
+}
+
+function formatDateTimeText(iso: string | null) {
+  if (!iso) return "일정 미정";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "일정 미정";
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())} ${pad2(
+    d.getHours()
+  )}:${pad2(d.getMinutes())}`;
+}
+
+function inferScheduleBadge(type: string) {
+  // UI 라벨은 기존처럼 type 그대로(1차 면접/과제 제출/코딩테스트 등)
+  return type;
+}
+
+function badgeStyle() {
+  return "inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-semibold text-slate-700";
+}
+
+function statusBadgeStyle(status: InterviewStatus) {
+  const base = "inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold";
+  if (status === "예정") return `${base} bg-slate-100 text-slate-700`;
+  if (status === "합격") return `${base} bg-emerald-50 text-emerald-700`;
+  return `${base} bg-rose-50 text-rose-700`;
 }
 
 export default function ApplicationDetailPage() {
@@ -70,38 +148,9 @@ export default function ApplicationDetailPage() {
   const [appliedAt, setAppliedAt] = useState("");
   const [memo, setMemo] = useState("");
 
-  const scheduleItems: ScheduleItem[] = useMemo(
-    () => [
-      {
-        id: "s1",
-        type: "면접",
-        badge: "1차 면접",
-        title: "기술 면접",
-        dateText: "2025-01-22 14:00",
-        meta: "면접관: 김개발 팀장, 이프론트 시니어",
-        memo: "React, JavaScript 기본기 위주로 질문받음. 프로젝트 경험에 대해 자세히 설명.",
-      },
-      {
-        id: "s2",
-        type: "과제",
-        badge: "과제 제출",
-        title: "코딩 테스트",
-        dateText: "2025-01-25까지",
-        meta: "온라인 과제",
-        memo: "React로 Todo 앱 구현. Redux 사용 필수. 3일 내 제출.",
-      },
-      {
-        id: "s3",
-        type: "면접",
-        badge: "2차 면접 예정",
-        title: "임원 면접",
-        dateText: "2025-01-30 10:00",
-        meta: "면접관: 박CTO, 최팀장",
-        memo: "문화 적합성 및 비전 면접 예정",
-      },
-    ],
-    []
-  );
+  const [scheduleLoading, setScheduleLoading] = useState(false);
+  const [scheduleError, setScheduleError] = useState<string | null>(null);
+  const [schedules, setSchedules] = useState<InterviewRow[]>([]);
 
   const fetchDetail = async () => {
     if (!applicationId) return;
@@ -110,20 +159,21 @@ export default function ApplicationDetailPage() {
       setLoading(true);
       setErrorMsg(null);
 
-      const appRes = await axios.get(`/api/applications/${applicationId}`);
-      const app = appRes.data?.data as ApplicationRow;
+      const [appRes, postingsRes] = await Promise.all([
+        axios.get<{ data: ApplicationRow }>(`/api/applications/${applicationId}`),
+        axios.get<{ data: JobPostingApiRow[] }>("/api/job-postings"),
+      ]);
 
-      const postingsRes = await axios.get("/api/job-postings");
-      const jobPostings = (postingsRes.data?.data ?? []) as JobPostingApiRow[];
+      const app = appRes.data.data;
+      const jobPostings = postingsRes.data.data ?? [];
 
       const posting = jobPostings.find((jp) => {
         const id = String(jp.id ?? jp._id ?? "");
         return id === app.jobPostingId;
       });
 
-      const cName =
-        posting?.company_name ?? posting?.companyName ?? "회사명 미기입";
-      const pos = posting?.position ?? "-";
+      const cName = posting?.company_name ?? posting?.companyName ?? "회사명 미기입";
+      const pos = posting?.position ?? posting?.title ?? "-";
       const url = posting?.url ?? "";
 
       setCompanyName(cName);
@@ -136,6 +186,7 @@ export default function ApplicationDetailPage() {
     } catch (err: unknown) {
       console.error("지원 상세 불러오기 오류:", err);
       setErrorMsg("지원 상세 정보를 불러오는 중 오류가 발생했습니다.");
+
       setCompanyName("");
       setPosition("");
       setJobUrl("");
@@ -147,8 +198,44 @@ export default function ApplicationDetailPage() {
     }
   };
 
+  const fetchSchedules = async () => {
+    if (!applicationId) return;
+
+    try {
+      setScheduleLoading(true);
+      setScheduleError(null);
+
+      const res = await axios.get<{ data: InterviewRow[] }>("/api/interviews");
+      const all = res.data.data ?? [];
+
+      const filtered = all
+        .filter((it) => it.applicationId === applicationId)
+        .sort((a, b) => {
+          const ta = a.scheduledAt ? new Date(a.scheduledAt).getTime() : Number.POSITIVE_INFINITY;
+          const tb = b.scheduledAt ? new Date(b.scheduledAt).getTime() : Number.POSITIVE_INFINITY;
+          return ta - tb;
+        });
+
+      setSchedules(filtered);
+    } catch (err: unknown) {
+      const ax = err as AxiosError<ApiErrorResponse>;
+      console.error("면접/과제 일정 불러오기 오류:", err);
+
+      if (ax.response?.status === 401) {
+        setScheduleError("로그인이 필요합니다.");
+      } else {
+        setScheduleError(pickErrorMessage(ax.response?.data));
+      }
+
+      setSchedules([]);
+    } finally {
+      setScheduleLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchDetail();
+    fetchSchedules();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [applicationId]);
 
@@ -168,11 +255,11 @@ export default function ApplicationDetailPage() {
         memo: memo ? memo : null,
       };
 
-      const res = await axios.patch(
+      const res = await axios.patch<{ data: ApplicationRow }>(
         `/api/applications/${applicationId}`,
         payload
       );
-      const updated = res.data?.data as ApplicationRow;
+      const updated = res.data.data;
 
       setStatus(updated.status);
       setAppliedAt(toDateInputValue(updated.appliedAt));
@@ -203,6 +290,10 @@ export default function ApplicationDetailPage() {
   const readOnlyBox =
     "h-10 w-full rounded-md border border-slate-200 bg-slate-50 px-3 text-sm text-slate-900 flex items-center";
 
+  const scheduleCountText = useMemo(() => {
+    return `${schedules.length}개`;
+  }, [schedules.length]);
+
   if (loading) {
     return (
       <main className="px-6 py-6">
@@ -231,10 +322,7 @@ export default function ApplicationDetailPage() {
             <Button variant="outline" onClick={fetchDetail}>
               다시 시도
             </Button>
-            <Button
-              variant="primary"
-              onClick={() => router.push("/applications")}
-            >
+            <Button variant="primary" onClick={() => router.push("/applications")}>
               목록으로
             </Button>
           </div>
@@ -278,19 +366,14 @@ export default function ApplicationDetailPage() {
           >
             저장
           </Button>
-          <Button
-            variant="outline"
-            size="md"
-            type="button"
-            onClick={onClickDelete}
-          >
+          <Button variant="outline" size="md" type="button" onClick={onClickDelete}>
             삭제
           </Button>
         </div>
       </div>
 
       <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-12">
-        {/* 통합 지원 정보 */}
+        {/* 지원 정보 */}
         <section className="lg:col-span-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
           <div className="text-sm font-semibold text-slate-900">지원 정보</div>
 
@@ -370,70 +453,67 @@ export default function ApplicationDetailPage() {
           </div>
         </section>
 
-        {/* 면접/과제 일정 */}
+        {/* ✅ 면접/과제 일정: API 로드 결과 표시 */}
         <section className="lg:col-span-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
           <div className="flex items-center justify-between">
-            <div className="text-sm font-semibold text-slate-900">
-              면접 및 과제 일정
+            <div className="text-sm font-semibold text-slate-900">면접 및 과제 일정</div>
+
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-slate-500">{scheduleCountText}</span>
+              <Button
+                variant="outline"
+                size="sm"
+                type="button"
+                onClick={fetchSchedules}
+                disabled={scheduleLoading}
+                className="disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                새로고침
+              </Button>
             </div>
-            <Button variant="primary" size="md" type="button">
-              + 면접/과제 일정 추가
-            </Button>
           </div>
 
+          {scheduleError ? (
+            <div className="mt-5 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+              {scheduleError}
+            </div>
+          ) : null}
+
           <div className="mt-5 space-y-3">
-            {scheduleItems.map((item) => (
-              <div
-                key={item.id}
-                className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm"
-              >
-                <div className="flex items-start justify-between gap-4">
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className={badgeStyle(item.type)}>{item.badge}</span>
-                      <span className="text-xs font-medium text-slate-500">
-                        {item.dateText}
-                      </span>
-                    </div>
-
-                    <div className="mt-2 text-sm font-semibold text-slate-900">
-                      {item.title}
-                    </div>
-
-                    {item.meta && (
-                      <div className="mt-1 text-xs text-slate-500">
-                        {item.meta}
+            {scheduleLoading ? (
+              <div className="text-sm text-slate-500">일정을 불러오는 중...</div>
+            ) : schedules.length === 0 ? (
+              <div className="text-sm text-slate-500">등록된 일정이 없습니다.</div>
+            ) : (
+              schedules.map((it) => (
+                <div
+                  key={it.id}
+                  className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm"
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className={badgeStyle()}>{inferScheduleBadge(it.type)}</span>
+                        <span className="text-xs font-medium text-slate-500">
+                          {formatDateTimeText(it.scheduledAt)}
+                        </span>
+                        <span className={statusBadgeStyle(it.status)}>{it.status}</span>
                       </div>
-                    )}
 
-                    {item.memo && (
-                      <div className="mt-2 text-xs text-slate-600">
-                        {item.memo}
-                      </div>
-                    )}
-                  </div>
+                      {it.location ? (
+                        <div className="mt-2 text-xs text-slate-500">장소: {it.location}</div>
+                      ) : null}
 
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      type="button"
-                      aria-label="edit"
-                    >
-                      ✎
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      type="button"
-                      aria-label="delete"
-                    >
-                      🗑
-                    </Button>
+                      {it.memo ? (
+                        <div className="mt-2 text-xs text-slate-700 whitespace-pre-wrap">
+                          {it.memo}
+                        </div>
+                      ) : null}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </section>
       </div>
