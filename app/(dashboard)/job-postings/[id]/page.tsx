@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import axios from "axios";
+import axios, { AxiosError } from "axios";
 import Link from "next/link";
 import Button from "@/src/components/ui/Button";
 import type { JobPostingDocument } from "@/src/types/jobPostings";
@@ -11,6 +11,72 @@ import type { ApplicationRow, ApplicationStatus } from "@/src/types/applications
 type JobPostingWithId = JobPostingDocument & {
   id: string;
 };
+
+type InterviewStatus = "예정" | "합격" | "불합격";
+
+type InterviewRow = {
+  id: string;
+  userId: string;
+  jobPostingId: string;
+  applicationId: string;
+
+  type: string;
+  scheduledAt: string | null;
+  location: string | null;
+
+  status: InterviewStatus;
+  memo: string | null;
+
+  createdAt: string;
+  updatedAt: string;
+};
+
+type FieldErrors = Record<string, string[]>;
+type ApiErrorResponse = {
+  error?: string;
+  fieldErrors?: FieldErrors;
+  formErrors?: string[];
+  details?: {
+    fieldErrors?: FieldErrors;
+    formErrors?: string[];
+  };
+};
+
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === "object" && v !== null;
+}
+function isStringArray(v: unknown): v is string[] {
+  return Array.isArray(v) && v.every((x) => typeof x === "string");
+}
+function isFieldErrors(v: unknown): v is FieldErrors {
+  if (!isRecord(v)) return false;
+  return Object.values(v).every((arr) => isStringArray(arr));
+}
+function pickErrorMessage(data: unknown): string {
+  if (!isRecord(data)) return "오류가 발생했습니다.";
+
+  if (typeof data.error === "string" && data.error.trim()) return data.error;
+
+  if (isFieldErrors(data.fieldErrors)) {
+    const firstKey = Object.keys(data.fieldErrors)[0];
+    const firstMsg = firstKey ? data.fieldErrors[firstKey]?.[0] : undefined;
+    if (firstMsg) return firstMsg;
+  }
+
+  if (isStringArray(data.formErrors) && data.formErrors[0]) return data.formErrors[0];
+
+  const details = data.details;
+  if (isRecord(details)) {
+    if (isFieldErrors(details.fieldErrors)) {
+      const firstKey = Object.keys(details.fieldErrors)[0];
+      const firstMsg = firstKey ? details.fieldErrors[firstKey]?.[0] : undefined;
+      if (firstMsg) return firstMsg;
+    }
+    if (isStringArray(details.formErrors) && details.formErrors[0]) return details.formErrors[0];
+  }
+
+  return "오류가 발생했습니다.";
+}
 
 function formatDate(value?: string | Date) {
   if (!value) return "-";
@@ -36,7 +102,6 @@ function dueInText(value?: string | Date) {
   return `${diffDays}일`;
 }
 
-
 function statusDot(status: ApplicationStatus) {
   if (status === "합격") return "bg-emerald-500";
   if (status === "불합격") return "bg-rose-500";
@@ -44,6 +109,26 @@ function statusDot(status: ApplicationStatus) {
   if (status === "서류 합격") return "bg-indigo-500";
   if (status === "지원 완료") return "bg-emerald-500";
   return "bg-slate-400";
+}
+
+function pad2(n: number) {
+  return String(n).padStart(2, "0");
+}
+
+function formatDateTime(iso: string | null) {
+  if (!iso) return "-";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "-";
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())} ${pad2(
+    d.getHours()
+  )}:${pad2(d.getMinutes())}`;
+}
+
+function inferDotColor(type: string) {
+  const t = type.toLowerCase();
+  if (t.includes("과제")) return "bg-amber-500";
+  if (t.includes("테스트") || t.includes("coding") || t.includes("test")) return "bg-amber-500";
+  return "bg-sky-500";
 }
 
 export default function JobPostingDetailPage() {
@@ -58,6 +143,10 @@ export default function JobPostingDetailPage() {
   const [application, setApplication] = useState<ApplicationRow | null>(null);
   const [applicationLoading, setApplicationLoading] = useState(true);
   const [applicationError, setApplicationError] = useState<string | null>(null);
+
+  const [interviews, setInterviews] = useState<InterviewRow[]>([]);
+  const [interviewsLoading, setInterviewsLoading] = useState(false);
+  const [interviewsError, setInterviewsError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!id || id === "undefined") {
@@ -117,9 +206,49 @@ export default function JobPostingDetailPage() {
       }
     };
 
-
     fetchJobPosting();
     fetchApplication();
+  }, [id]);
+
+  const fetchInterviews = async () => {
+    if (!id || id === "undefined") return;
+
+    try {
+      setInterviewsLoading(true);
+      setInterviewsError(null);
+
+      const res = await axios.get<{ data: InterviewRow[] }>("/api/interviews");
+      const all = res.data?.data ?? [];
+
+      const filtered = all
+        .filter((it) => it.jobPostingId === id)
+        .sort((a, b) => {
+          const ta = a.scheduledAt ? new Date(a.scheduledAt).getTime() : Number.POSITIVE_INFINITY;
+          const tb = b.scheduledAt ? new Date(b.scheduledAt).getTime() : Number.POSITIVE_INFINITY;
+          return ta - tb;
+        });
+
+      setInterviews(filtered);
+    } catch (err: unknown) {
+      const ax = err as AxiosError<ApiErrorResponse>;
+      console.error("관련 면접 일정 불러오기 오류:", err);
+
+      if (ax.response?.status === 401) {
+        setInterviewsError("로그인이 필요합니다.");
+      } else {
+        setInterviewsError(pickErrorMessage(ax.response?.data));
+      }
+
+      setInterviews([]);
+    } finally {
+      setInterviewsLoading(false);
+    }
+  };
+
+  // ✅ 공고 상세 들어오면 면접 일정도 함께 로드
+  useEffect(() => {
+    fetchInterviews();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   const handleDelete = async () => {
@@ -174,6 +303,18 @@ export default function JobPostingDetailPage() {
     application?.memo ?? "아직 메모가 없습니다. 지원 관련 메모를 남겨보세요.";
 
   const dueInTextValue = dueInText(jobPosting?.dueDate);
+
+  const nextInterviewText = useMemo(() => {
+    const now = Date.now();
+    const upcoming = interviews
+      .filter((it) => it.scheduledAt)
+      .map((it) => ({ ...it, t: new Date(it.scheduledAt as string).getTime() }))
+      .filter((it) => !Number.isNaN(it.t) && it.t >= now)
+      .sort((a, b) => a.t - b.t)[0];
+
+    if (!upcoming) return "-";
+    return `${upcoming.type} · ${formatDateTime(upcoming.scheduledAt)}`;
+  }, [interviews]);
 
   return (
     <div className="px-6 py-6 md:px-8">
@@ -428,11 +569,7 @@ export default function JobPostingDetailPage() {
               ) : (
                 <div className="space-y-3 text-[11px] text-slate-500">
                   <div className="flex items-center gap-2">
-                    <span
-                      className={`h-2 w-2 rounded-full ${statusDot(
-                        application.status
-                      )}`}
-                    />
+                    <span className={`h-2 w-2 rounded-full ${statusDot(application.status)}`} />
                     <span className="font-medium text-slate-800">
                       {applicationStatusText}
                     </span>
@@ -452,9 +589,7 @@ export default function JobPostingDetailPage() {
 
                     <div className="space-y-1">
                       <p className="text-slate-400">상태</p>
-                      <p className="text-xs text-slate-800">
-                        {applicationStatusText}
-                      </p>
+                      <p className="text-xs text-slate-800">{applicationStatusText}</p>
                     </div>
                   </div>
 
@@ -468,54 +603,56 @@ export default function JobPostingDetailPage() {
               )}
             </div>
 
+            {/* ✅ 관련 면접 일정: 실제 API */}
             <div className="space-y-3 rounded-2xl border border-slate-200 bg-white px-6 py-5 shadow-sm">
               <div className="flex items-center justify-between">
                 <h2 className="text-sm font-semibold text-slate-900">
                   관련 면접 일정
                 </h2>
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="text-[11px]"
+                  onClick={fetchInterviews}
+                  disabled={interviewsLoading}
+                >
+                  {interviewsLoading ? "불러오는 중..." : "새로고침"}
+                </Button>
               </div>
 
-              <div className="space-y-3 text-[11px] text-slate-500">
-                <div className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2">
-                  <div className="flex items-center gap-2">
-                    <span className="h-2 w-2 rounded-full bg-sky-500" />
-                    <span className="text-xs text-slate-800">1차 면접</span>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-xs text-slate-800">2025-01-28 14:00</p>
-                    <p className="mt-0.5 text-[11px] text-slate-400">화상 면접</p>
-                  </div>
+              {interviewsError ? (
+                <div className="rounded-xl border border-rose-100 bg-rose-50 px-4 py-3 text-xs text-rose-600">
+                  {interviewsError}
                 </div>
+              ) : null}
 
-                <div className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2">
-                  <div className="flex items-center gap-2">
-                    <span className="h-2 w-2 rounded-full bg-amber-500" />
-                    <span className="text-xs text-slate-800">과제 제출</span>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-xs text-slate-800">2025-02-03</p>
-                    <p className="mt-0.5 text-[11px] text-slate-400">마감일</p>
-                  </div>
+              {interviewsLoading ? (
+                <p className="text-[11px] text-slate-400">면접 일정을 불러오는 중입니다...</p>
+              ) : interviews.length === 0 ? (
+                <p className="text-[11px] text-slate-400">등록된 면접/과제 일정이 없습니다.</p>
+              ) : (
+                <div className="space-y-3 text-[11px] text-slate-500">
+                  {interviews.map((it) => (
+                    <div
+                      key={it.id}
+                      className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className={`h-2 w-2 rounded-full ${inferDotColor(it.type)}`} />
+                        <span className="text-xs text-slate-800">{it.type}</span>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-xs text-slate-800">{formatDateTime(it.scheduledAt)}</p>
+                        <p className="mt-0.5 text-[11px] text-slate-400">
+                          {it.location ? it.location : it.status}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-
-                <div className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2">
-                  <div className="flex items-center gap-2">
-                    <span className="h-2 w-2 rounded-full bg-sky-500" />
-                    <span className="text-xs text-slate-800">2차 면접</span>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-xs text-slate-800">2025-02-05 10:00</p>
-                    <p className="mt-0.5 text-[11px] text-slate-400">현장 면접</p>
-                  </div>
-                </div>
-              </div>
-
-              <button
-                type="button"
-                className="mt-1 text-left text-[11px] font-medium text-slate-500 hover:text-slate-700"
-              >
-                + 새 면접 일정 추가
-              </button>
+              )}
             </div>
           </section>
 
@@ -535,6 +672,8 @@ export default function JobPostingDetailPage() {
                     <span>공고 정보 수정</span>
                   </Button>
                 </Link>
+
+                {/* 기존 버튼은 유지 (원하면 Link로 바꿀게) */}
                 <Button
                   type="button"
                   variant="outline"
@@ -544,6 +683,7 @@ export default function JobPostingDetailPage() {
                   <span>📅</span>
                   <span>면접 일정 추가</span>
                 </Button>
+
                 <Button
                   type="button"
                   variant="outline"
@@ -570,7 +710,7 @@ export default function JobPostingDetailPage() {
 
                 <div className="flex items-center justify-between">
                   <span className="text-slate-400">다음 일정</span>
-                  <span className="text-xs font-medium text-slate-800">-</span>
+                  <span className="text-xs font-medium text-slate-800">{nextInterviewText}</span>
                 </div>
 
                 <div className="flex items-center justify-between">
