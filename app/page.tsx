@@ -98,56 +98,6 @@ export default function HomePage() {
                 타임라인처럼 관리할 수 있습니다.
               </p>
             </div>
-
-            <div className="rounded-xl bg-slate-900/70 p-4 ring-1 ring-slate-800/70 md:col-span-2">
-              <div className="mb-2 flex items-center justify-between">
-                <div className="flex items-center gap-2 text-sm font-semibold text-amber-300">
-                  <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-amber-500/15 text-sm">
-                    📅
-                  </span>
-                  면접 일정 & 주간 뷰
-                </div>
-                <span className="rounded-full bg-slate-800 px-2 py-0.5 text-xs text-slate-300">
-                  예: 이번 주 면접 2건
-                </span>
-              </div>
-              <p className="text-sm leading-relaxed text-slate-300">
-                면접 날짜와 시간을 등록해 한 주 일정을 한눈에 확인하고,
-                겹치는 일정을 피할 수 있도록 도와줍니다.
-              </p>
-
-              {/* 간단한 가짜 미니 캘린더 UI */}
-              <div className="mt-3 grid grid-cols-7 gap-1 text-center text-xs text-slate-400">
-                <span>월</span>
-                <span>화</span>
-                <span>수</span>
-                <span>목</span>
-                <span>금</span>
-                <span>토</span>
-                <span>일</span>
-                <span className="rounded-md bg-slate-800/80 py-1 text-xs text-slate-200">
-                  10
-                </span>
-                <span className="rounded-md bg-slate-800/80 py-1 text-xs text-slate-200">
-                  11
-                </span>
-                <span className="rounded-md bg-emerald-500/80 py-1 text-xs text-slate-900">
-                  12
-                </span>
-                <span className="rounded-md bg-slate-800/80 py-1 text-xs text-slate-200">
-                  13
-                </span>
-                <span className="rounded-md bg-amber-400/80 py-1 text-xs text-slate-900">
-                  14
-                </span>
-                <span className="rounded-md bg-slate-800/80 py-1 text-xs text-slate-200">
-                  15
-                </span>
-                <span className="rounded-md bg-slate-800/80 py-1 text-xs text-slate-200">
-                  16
-                </span>
-              </div>
-            </div>
           </div>
 
           {/* 아래 작은 텍스트 */}

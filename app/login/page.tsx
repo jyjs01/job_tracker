@@ -101,17 +101,6 @@ export default function LoginPage() {
             />
           </div>
 
-          <div className="mt-1 flex items-center justify-between text-xs text-slate-600">
-            <label className="flex cursor-pointer items-center gap-2">
-              <Checkbox id="remember" name="remember" />
-              <span>로그인 상태 유지</span>
-            </label>
-
-            <Button type="button" variant="text" size="sm">
-              비밀번호를 잊으셨나요?
-            </Button>
-          </div>
-
           {/* 에러 메시지 */}
           {error && (
             <p className="mt-1 text-xs text-red-500">

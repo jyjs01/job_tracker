@@ -5,131 +5,12 @@ import { useParams, useRouter } from "next/navigation";
 import axios, { AxiosError } from "axios";
 import Link from "next/link";
 import Button from "@/src/components/ui/Button";
-import type { JobPostingDocument } from "@/src/types/jobPostings";
-import type { ApplicationRow, ApplicationStatus } from "@/src/types/applications";
-
-type JobPostingWithId = JobPostingDocument & {
-  id: string;
-};
-
-type InterviewStatus = "예정" | "합격" | "불합격";
-
-type InterviewRow = {
-  id: string;
-  userId: string;
-  jobPostingId: string;
-  applicationId: string;
-
-  type: string;
-  scheduledAt: string | null;
-  location: string | null;
-
-  status: InterviewStatus;
-  memo: string | null;
-
-  createdAt: string;
-  updatedAt: string;
-};
-
-type FieldErrors = Record<string, string[]>;
-type ApiErrorResponse = {
-  error?: string;
-  fieldErrors?: FieldErrors;
-  formErrors?: string[];
-  details?: {
-    fieldErrors?: FieldErrors;
-    formErrors?: string[];
-  };
-};
-
-function isRecord(v: unknown): v is Record<string, unknown> {
-  return typeof v === "object" && v !== null;
-}
-function isStringArray(v: unknown): v is string[] {
-  return Array.isArray(v) && v.every((x) => typeof x === "string");
-}
-function isFieldErrors(v: unknown): v is FieldErrors {
-  if (!isRecord(v)) return false;
-  return Object.values(v).every((arr) => isStringArray(arr));
-}
-function pickErrorMessage(data: unknown): string {
-  if (!isRecord(data)) return "오류가 발생했습니다.";
-
-  if (typeof data.error === "string" && data.error.trim()) return data.error;
-
-  if (isFieldErrors(data.fieldErrors)) {
-    const firstKey = Object.keys(data.fieldErrors)[0];
-    const firstMsg = firstKey ? data.fieldErrors[firstKey]?.[0] : undefined;
-    if (firstMsg) return firstMsg;
-  }
-
-  if (isStringArray(data.formErrors) && data.formErrors[0]) return data.formErrors[0];
-
-  const details = data.details;
-  if (isRecord(details)) {
-    if (isFieldErrors(details.fieldErrors)) {
-      const firstKey = Object.keys(details.fieldErrors)[0];
-      const firstMsg = firstKey ? details.fieldErrors[firstKey]?.[0] : undefined;
-      if (firstMsg) return firstMsg;
-    }
-    if (isStringArray(details.formErrors) && details.formErrors[0]) return details.formErrors[0];
-  }
-
-  return "오류가 발생했습니다.";
-}
-
-function formatDate(value?: string | Date) {
-  if (!value) return "-";
-  const d = typeof value === "string" ? new Date(value) : value;
-  if (Number.isNaN(d.getTime())) return "-";
-  return d.toISOString().slice(0, 10);
-}
-
-function dueInText(value?: string | Date) {
-  if (!value) return "-";
-
-  const due = typeof value === "string" ? new Date(value) : value;
-  if (Number.isNaN(due.getTime())) return "-";
-
-  const today = new Date();
-  const a = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
-  const b = new Date(due.getFullYear(), due.getMonth(), due.getDate()).getTime();
-
-  const diffDays = Math.ceil((b - a) / (1000 * 60 * 60 * 24));
-
-  if (diffDays < 0) return "마감";
-  if (diffDays === 0) return "오늘";
-  return `${diffDays}일`;
-}
-
-function statusDot(status: ApplicationStatus) {
-  if (status === "합격") return "bg-emerald-500";
-  if (status === "불합격") return "bg-rose-500";
-  if (status === "면접 진행") return "bg-sky-500";
-  if (status === "서류 합격") return "bg-indigo-500";
-  if (status === "지원 완료") return "bg-emerald-500";
-  return "bg-slate-400";
-}
-
-function pad2(n: number) {
-  return String(n).padStart(2, "0");
-}
-
-function formatDateTime(iso: string | null) {
-  if (!iso) return "-";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "-";
-  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())} ${pad2(
-    d.getHours()
-  )}:${pad2(d.getMinutes())}`;
-}
-
-function inferDotColor(type: string) {
-  const t = type.toLowerCase();
-  if (t.includes("과제")) return "bg-amber-500";
-  if (t.includes("테스트") || t.includes("coding") || t.includes("test")) return "bg-amber-500";
-  return "bg-sky-500";
-}
+import type { JobPostingWithId } from "@/src/types/jobPostings";
+import type { ApplicationRow } from "@/src/types/applications";
+import type { InterviewRow } from "@/src/types/interviews";
+import type { ApiErrorResponse } from "@/src/types/error";
+import { formatDate, dueInText, statusDot, formatDateTime, inferDotColor } from "@/src/utils/jobPostings";
+import { pickErrorMessage } from "@/src/utils/error";
 
 export default function JobPostingDetailPage() {
   const params = useParams<{ id: string }>();
@@ -148,6 +29,7 @@ export default function JobPostingDetailPage() {
   const [interviewsLoading, setInterviewsLoading] = useState(false);
   const [interviewsError, setInterviewsError] = useState<string | null>(null);
 
+  // 채용 공고, 지원 이력 불러오기
   useEffect(() => {
     if (!id || id === "undefined") {
       setError("올바르지 않은 채용 공고 주소입니다.");
@@ -210,6 +92,8 @@ export default function JobPostingDetailPage() {
     fetchApplication();
   }, [id]);
 
+
+  // 면접/과제 일정 불러오기
   const fetchInterviews = async () => {
     if (!id || id === "undefined") return;
 
@@ -245,12 +129,13 @@ export default function JobPostingDetailPage() {
     }
   };
 
-  // ✅ 공고 상세 들어오면 면접 일정도 함께 로드
+  // 공고 상세 들어오면 면접 일정도 함께 로드
   useEffect(() => {
     fetchInterviews();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
+  // 채용 공고 삭제
   const handleDelete = async () => {
     if (!id || id === "undefined") {
       alert("올바르지 않은 채용 공고 주소가 아닙니다.");
@@ -527,6 +412,7 @@ export default function JobPostingDetailPage() {
               </div>
             )}
 
+            {/* 지원 이력 */}
             <div className="space-y-4 rounded-2xl border border-slate-200 bg-white px-6 py-5 shadow-sm">
               <div className="flex items-center justify-between">
                 <h2 className="text-sm font-semibold text-slate-900">
@@ -603,7 +489,7 @@ export default function JobPostingDetailPage() {
               )}
             </div>
 
-            {/* ✅ 관련 면접 일정: 실제 API */}
+            {/* 관련 면접 일정 */}
             <div className="space-y-3 rounded-2xl border border-slate-200 bg-white px-6 py-5 shadow-sm">
               <div className="flex items-center justify-between">
                 <h2 className="text-sm font-semibold text-slate-900">
@@ -672,17 +558,6 @@ export default function JobPostingDetailPage() {
                     <span>공고 정보 수정</span>
                   </Button>
                 </Link>
-
-                {/* 기존 버튼은 유지 (원하면 Link로 바꿀게) */}
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="flex w-full justify-start gap-2 text-[11px]"
-                >
-                  <span>📅</span>
-                  <span>면접 일정 추가</span>
-                </Button>
 
                 <Button
                   type="button"

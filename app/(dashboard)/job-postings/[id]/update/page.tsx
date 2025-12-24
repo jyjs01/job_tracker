@@ -7,23 +7,9 @@ import axios from "axios";
 import Button from "@/src/components/ui/Button";
 import Input from "@/src/components/ui/Input";
 import FilterSelect from "@/src/components/ui/FilterSelect";
-import {
-  jobPostingFormSchema,
-  JobPostingFormValues,
-} from "@/src/lib/validation/client/jobPostingsForm";
-import type { JobPostingDocument } from "@/src/types/jobPostings";
-
-type JobPostingWithId = JobPostingDocument & { id: string };
-
-function toDateInputValue(value?: string | Date) {
-  if (!value) return "";
-  const d = typeof value === "string" ? new Date(value) : value;
-  if (Number.isNaN(d.getTime())) return "";
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  return `${yyyy}-${mm}-${dd}`;
-}
+import { jobPostingFormSchema, JobPostingFormValues } from "@/src/lib/validation/client/jobPostingsForm";
+import type { JobPostingWithId } from "@/src/types/jobPostings";
+import { formatDate } from "@/src/utils/jobPostings";
 
 export default function JobPostingUpdatePage() {
   const router = useRouter();
@@ -31,8 +17,7 @@ export default function JobPostingUpdatePage() {
   const id = params?.id;
 
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [errors, setErrors] =
-    useState<Partial<Record<keyof JobPostingFormValues, string>>>({});
+  const [errors, setErrors] = useState<Partial<Record<keyof JobPostingFormValues, string>>>({});
   const [jobPosting, setJobPosting] = useState<JobPostingWithId | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -526,7 +511,7 @@ export default function JobPostingUpdatePage() {
                     <Input
                       type="date"
                       name="startDate"
-                      defaultValue={toDateInputValue(jobPosting.createdAt)}
+                      defaultValue={formatDate(jobPosting.createdAt)}
                     />
                   </div>
 
@@ -537,7 +522,7 @@ export default function JobPostingUpdatePage() {
                     <Input
                       type="date"
                       name="dueDate"
-                      defaultValue={toDateInputValue(jobPosting.dueDate)}
+                      defaultValue={formatDate(jobPosting.dueDate)}
                     />
                     {errors.dueDate && (
                       <p className="mt-1 text-[11px] text-rose-500">

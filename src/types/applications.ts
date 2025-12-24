@@ -30,6 +30,13 @@ export type ApplicationRow = {
   updatedAt: string;
 };
 
+// 얇은 타입
+export type ApplicationListItem = Pick<
+  ApplicationRow,
+  "id" | "jobPostingId" | "status" | "appliedAt"
+>;
+
+
 export type CreateApplicationArgs = {
   userId: string;
   jobPostingId: string;

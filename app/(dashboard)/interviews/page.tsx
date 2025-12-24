@@ -1,205 +1,30 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import axios, { AxiosError } from "axios";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Button from "@/src/components/ui/Button";
+import { StatusBadge, Chip, PlaceIcon } from "./schedule/page.components";
+import type { JobPostingListItem } from "@/src/types/jobPostings";
+import type { InterviewRow } from "@/src/types/interviews";
+import type { ScheduleItem } from "@/src/types/schedule";
+import type { ApiErrorResponse } from "@/src/types/error";
+import { pickErrorMessage } from "@/src/utils/error";
+import { 
+  formatDotDate, 
+  formatTimeHHmm, 
+  startOfDay,
+  endOfDay,
+  startOfWeekMonday,
+  endOfWeekSunday, 
+  startOfMonth, 
+  endOfMonth, 
+  inferPlace } 
+from "@/src/utils/interviews";
 
 type PeriodFilter = "today" | "week" | "month";
 type ResultFilter = "all" | "scheduled" | "pass" | "fail";
-
-type InterviewStatus = "예정" | "합격" | "불합격";
-
-type InterviewRow = {
-  id: string;
-  userId: string;
-  jobPostingId: string;
-  applicationId: string;
-  type: string;
-  scheduledAt: string | null;
-  location: string | null;
-  status: InterviewStatus;
-  memo: string | null;
-  createdAt: string;
-  updatedAt: string;
-};
-
-type JobPostingRow = {
-  id: string;
-  companyName?: string | null;
-  position?: string | null;
-  title?: string | null;
-};
-
-type ScheduleItem = {
-  id: string;
-  scheduledAt: string;
-  date: string;
-  time: string;
-  company: string;
-  position: string;
-  roundOrType: string;
-  place: "online" | "offline";
-  status: InterviewStatus;
-};
-
-type FieldErrors = Record<string, string[]>;
-type ApiErrorResponse = {
-  error?: string;
-  fieldErrors?: FieldErrors;
-  formErrors?: string[];
-  details?: {
-    fieldErrors?: FieldErrors;
-    formErrors?: string[];
-  };
-};
-
-type InterviewsSuccess = { data: InterviewRow[] };
-type JobPostingsSuccess = { data: JobPostingRow[] };
-
-function isRecord(v: unknown): v is Record<string, unknown> {
-  return typeof v === "object" && v !== null;
-}
-function isStringArray(v: unknown): v is string[] {
-  return Array.isArray(v) && v.every((x) => typeof x === "string");
-}
-function isFieldErrors(v: unknown): v is FieldErrors {
-  if (!isRecord(v)) return false;
-  return Object.values(v).every((arr) => isStringArray(arr));
-}
-
-function pickErrorMessage(data: unknown): string {
-  if (!isRecord(data)) return "요청 처리 중 오류가 발생했습니다.";
-
-  if (typeof data.error === "string" && data.error.trim()) return data.error;
-
-  if (isFieldErrors(data.fieldErrors)) {
-    const firstKey = Object.keys(data.fieldErrors)[0];
-    const firstMsg = firstKey ? data.fieldErrors[firstKey]?.[0] : undefined;
-    if (firstMsg) return firstMsg;
-  }
-  if (isStringArray(data.formErrors) && data.formErrors[0]) return data.formErrors[0];
-
-  const details = data.details;
-  if (isRecord(details)) {
-    if (isFieldErrors(details.fieldErrors)) {
-      const firstKey = Object.keys(details.fieldErrors)[0];
-      const firstMsg = firstKey ? details.fieldErrors[firstKey]?.[0] : undefined;
-      if (firstMsg) return firstMsg;
-    }
-    if (isStringArray(details.formErrors) && details.formErrors[0]) return details.formErrors[0];
-  }
-
-  return "요청 처리 중 오류가 발생했습니다.";
-}
-
-function formatDotDate(d: Date) {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}.${m}.${day}`;
-}
-
-function formatTimeHHmm(d: Date) {
-  const hh = String(d.getHours()).padStart(2, "0");
-  const mm = String(d.getMinutes()).padStart(2, "0");
-  return `${hh}:${mm}`;
-}
-
-function startOfDay(d: Date) {
-  const nd = new Date(d);
-  nd.setHours(0, 0, 0, 0);
-  return nd;
-}
-
-function endOfDay(d: Date) {
-  const nd = new Date(d);
-  nd.setHours(23, 59, 59, 999);
-  return nd;
-}
-
-function startOfWeekMonday(d: Date) {
-  const nd = startOfDay(d);
-  const day = nd.getDay();
-  const diffToMonday = (day + 6) % 7;
-  nd.setDate(nd.getDate() - diffToMonday);
-  return nd;
-}
-
-function endOfWeekSunday(d: Date) {
-  const s = startOfWeekMonday(d);
-  const e = endOfDay(new Date(s));
-  e.setDate(s.getDate() + 6);
-  return e;
-}
-
-function startOfMonth(d: Date) {
-  return startOfDay(new Date(d.getFullYear(), d.getMonth(), 1));
-}
-
-function endOfMonth(d: Date) {
-  return endOfDay(new Date(d.getFullYear(), d.getMonth() + 1, 0));
-}
-
-function inferPlace(location: string | null) {
-  if (!location || !location.trim()) return "online" as const;
-
-  const v = location.toLowerCase();
-  const onlineHints = ["http://", "https://", "zoom", "meet.google", "teams", "webex", "discord"];
-  return onlineHints.some((h) => v.includes(h)) ? ("online" as const) : ("offline" as const);
-}
-
-function StatusBadge({ status }: { status: ScheduleItem["status"] }) {
-  const cls =
-    status === "예정"
-      ? "bg-slate-100 text-slate-700"
-      : status === "합격"
-      ? "bg-emerald-50 text-emerald-700"
-      : "bg-rose-50 text-rose-700";
-
-  return (
-    <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${cls}`}>
-      {status}
-    </span>
-  );
-}
-
-function Chip({ children }: { children: React.ReactNode }) {
-  return (
-    <span className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
-      {children}
-    </span>
-  );
-}
-
-function PlaceIcon({ place }: { place: ScheduleItem["place"] }) {
-  if (place === "online") {
-    return (
-      <span className="inline-flex items-center gap-2 text-sm text-slate-600">
-        <svg width="16" height="16" viewBox="0 0 24 24" className="text-slate-500">
-          <path
-            fill="currentColor"
-            d="M4 5a3 3 0 0 1 3-3h10a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3h-4.5l2 3H15l-2-3H7a3 3 0 0 1-3-3V5zm3-1a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V5a1 1 0 0 0-1-1H7z"
-          />
-        </svg>
-        온라인
-      </span>
-    );
-  }
-
-  return (
-    <span className="inline-flex items-center gap-2 text-sm text-slate-600">
-      <svg width="16" height="16" viewBox="0 0 24 24" className="text-slate-500">
-        <path
-          fill="currentColor"
-          d="M7 2a1 1 0 0 1 1 1v1h8V3a1 1 0 1 1 2 0v1h1a3 3 0 0 1 3 3v13a3 3 0 0 1-3 3H5a3 3 0 0 1-3-3V7a3 3 0 0 1 3-3h1V3a1 1 0 0 1 1-1zm13 9H4v9a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-9zM5 6a1 1 0 0 0-1 1v2h16V7a1 1 0 0 0-1-1H5z"
-        />
-      </svg>
-      오프라인
-    </span>
-  );
-}
 
 export default function InterviewsPage() {
   const router = useRouter();
@@ -211,6 +36,7 @@ export default function InterviewsPage() {
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
 
+  // 채용 공고, 면접/과제 일정 불러오기
   useEffect(() => {
     let mounted = true;
 
@@ -220,14 +46,14 @@ export default function InterviewsPage() {
 
       try {
         const [interviewsRes, jobPostingsRes] = await Promise.all([
-          axios.get<InterviewsSuccess>("/api/interviews"),
-          axios.get<JobPostingsSuccess>("/api/job-postings"),
+          axios.get<{ data: InterviewRow[] }>("/api/interviews"),
+          axios.get<{ data: JobPostingListItem[] }>("/api/job-postings"),
         ]);
 
         const interviews = interviewsRes.data.data;
         const jobPostings = jobPostingsRes.data.data;
 
-        const jobPostingMap = new Map<string, JobPostingRow>();
+        const jobPostingMap = new Map<string, JobPostingListItem>();
         jobPostings.forEach((jp) => jobPostingMap.set(jp.id, jp));
 
         const mapped: ScheduleItem[] = interviews
