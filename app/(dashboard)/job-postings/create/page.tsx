@@ -7,10 +7,7 @@ import axios from "axios";
 import Button from "@/src/components/ui/Button";
 import Input from "@/src/components/ui/Input";
 import FilterSelect from "@/src/components/ui/FilterSelect";
-import {
-  jobPostingFormSchema,
-  JobPostingFormValues,
-} from "@/src/lib/validation/client/jobPostingsForm";
+import { jobPostingFormSchema, JobPostingFormValues } from "@/src/lib/validation/client/jobPostingsForm";
 
 export default function JobPostingCreatePage() {
   const router = useRouter();
@@ -421,44 +418,13 @@ export default function JobPostingCreatePage() {
                 </div>
               </div>
 
-              {/* 시작일 / 마감일 */}
+              {/* 마감일 */}
               <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-1">
-                  <label className="text-xs font-medium text-slate-700">
-                    시작일
-                  </label>
-                  <Input type="date" name="startDate" />
-                </div>
-
                 <div className="space-y-1">
                   <label className="text-xs font-medium text-slate-700">
                     마감일
                   </label>
                   <Input type="date" name="dueDate" />
-                </div>
-              </div>
-
-              {/* 진행 상태 */}
-              <div className="space-y-2">
-                <p className="text-xs font-medium text-slate-700">진행 상태</p>
-                <div className="flex flex-wrap gap-4 text-xs text-slate-700">
-                  <label className="inline-flex items-center gap-1">
-                    <input
-                      type="radio"
-                      name="publishStatus"
-                      className="h-3.5 w-3.5 border-slate-300 text-slate-900 focus:ring-blue-500"
-                      defaultChecked
-                    />
-                    <span>즉시 공개</span>
-                  </label>
-                  <label className="inline-flex items-center gap-1">
-                    <input
-                      type="radio"
-                      name="publishStatus"
-                      className="h-3.5 w-3.5 border-slate-300 text-slate-900 focus:ring-blue-500"
-                    />
-                    <span>임시 저장</span>
-                  </label>
                 </div>
               </div>
             </div>
