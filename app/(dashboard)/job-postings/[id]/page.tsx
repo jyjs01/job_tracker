@@ -9,7 +9,8 @@ import type { JobPostingWithId } from "@/src/types/jobPostings";
 import type { ApplicationRow } from "@/src/types/applications";
 import type { InterviewRow } from "@/src/types/interviews";
 import type { ApiErrorResponse } from "@/src/types/error";
-import { formatDate, pickErrorMessage, dueInText, statusDot, formatDateTime, inferDotColor } from "@/src/utils/jobPostings";
+import { formatDate, dueInText, statusDot, formatDateTime, inferDotColor } from "@/src/utils/jobPostings";
+import { pickErrorMessage } from "@/src/utils/error";
 
 export default function JobPostingDetailPage() {
   const params = useParams<{ id: string }>();

@@ -5,24 +5,12 @@ import { useRouter } from "next/navigation";
 import axios, { AxiosError } from "axios";
 import Button from "@/src/components/ui/Button";
 import Input from "@/src/components/ui/Input";
-
-type InterviewStatus = "예정" | "합격" | "불합격";
-
-// job-postings 응답 row (필요 필드만)
-type JobPostingRow = {
-  id: string;
-  title?: string | null;
-  position?: string | null;
-  companyName?: string | null;
-};
-
-// applications 응답 row (src/types/applications.ts 형태)
-type ApplicationRow = {
-  id: string;
-  jobPostingId: string;
-  status: string;
-  appliedAt: string | null;
-};
+import type { JobPostingListItem } from "@/src/types/jobPostings";
+import type { ApplicationListItem } from "@/src/types/applications";
+import type { InterviewStatus } from "@/src/types/interviews";
+import { toServerIso } from "@/src/utils/interviews";
+import type { ApiErrorResponse } from "@/src/types/error";
+import { pickErrorMessage } from "@/src/utils/error";
 
 type InterviewFormState = {
   jobPostingId: string;
@@ -44,75 +32,6 @@ const typePresets = [
   "과제 발표",
 ];
 
-function toPreviewDateTime(datetimeLocal: string) {
-  if (!datetimeLocal) return "";
-  const [date, time] = datetimeLocal.split("T");
-  return `${date.replaceAll("-", ".")} ${time}`;
-}
-
-function toServerIso(datetimeLocal: string) {
-  if (!datetimeLocal) return null;
-  const d = new Date(datetimeLocal);
-  if (Number.isNaN(d.getTime())) return null;
-  return d.toISOString();
-}
-
-type FieldErrors = Record<string, string[]>;
-type ApiErrorResponse = {
-  error?: string;
-  fieldErrors?: FieldErrors;
-  formErrors?: string[];
-  details?: {
-    fieldErrors?: FieldErrors;
-    formErrors?: string[];
-  };
-};
-
-type JobPostingsSuccess = { data: JobPostingRow[] };
-type ApplicationsSuccess = { data: ApplicationRow[] };
-
-function isRecord(v: unknown): v is Record<string, unknown> {
-  return typeof v === "object" && v !== null;
-}
-
-function isStringArray(v: unknown): v is string[] {
-  return Array.isArray(v) && v.every((x) => typeof x === "string");
-}
-
-function isFieldErrors(v: unknown): v is FieldErrors {
-  if (!isRecord(v)) return false;
-  return Object.values(v).every((arr) => isStringArray(arr));
-}
-
-function pickErrorMessage(data: unknown): string {
-  if (!isRecord(data)) return "요청 처리 중 오류가 발생했습니다.";
-
-  // { error }
-  if (typeof data.error === "string" && data.error.trim()) return data.error;
-
-  // { fieldErrors, formErrors }
-  if (isFieldErrors(data.fieldErrors)) {
-    const firstKey = Object.keys(data.fieldErrors)[0];
-    const firstMsg = firstKey ? data.fieldErrors[firstKey]?.[0] : undefined;
-    if (firstMsg) return firstMsg;
-  }
-
-  if (isStringArray(data.formErrors) && data.formErrors[0]) return data.formErrors[0];
-
-  // { details: { fieldErrors, formErrors } }
-  const details = data.details;
-  if (isRecord(details)) {
-    if (isFieldErrors(details.fieldErrors)) {
-      const firstKey = Object.keys(details.fieldErrors)[0];
-      const firstMsg = firstKey ? details.fieldErrors[firstKey]?.[0] : undefined;
-      if (firstMsg) return firstMsg;
-    }
-    if (isStringArray(details.formErrors) && details.formErrors[0]) return details.formErrors[0];
-  }
-
-  return "요청 처리 중 오류가 발생했습니다.";
-}
-
 export default function InterviewCreatePage() {
   const router = useRouter();
 
@@ -126,8 +45,8 @@ export default function InterviewCreatePage() {
     memo: "",
   });
 
-  const [jobPostings, setJobPostings] = useState<JobPostingRow[]>([]);
-  const [applications, setApplications] = useState<ApplicationRow[]>([]);
+  const [jobPostings, setJobPostings] = useState<JobPostingListItem[]>([]);
+  const [applications, setApplications] = useState<ApplicationListItem[]>([]);
 
   const [loadingJobPostings, setLoadingJobPostings] = useState(false);
   const [loadingApplications, setLoadingApplications] = useState(false);
@@ -152,7 +71,7 @@ export default function InterviewCreatePage() {
       setLoadingJobPostings(true);
 
       try {
-        const res = await axios.get<JobPostingsSuccess>("/api/job-postings");
+        const res = await axios.get<{ data: JobPostingListItem[] }>("/api/job-postings");
         const list = res.data.data;
 
         if (!mounted) return;
@@ -191,7 +110,7 @@ export default function InterviewCreatePage() {
       setLoadingApplications(true);
 
       try {
-        const res = await axios.get<ApplicationsSuccess>("/api/applications");
+        const res = await axios.get<{ data: ApplicationListItem[] }>("/api/applications");
         const list = res.data.data;
 
         if (!mounted) return;
@@ -437,9 +356,7 @@ export default function InterviewCreatePage() {
                 className="mt-2 disabled:cursor-not-allowed disabled:opacity-60"
               />
               <p className="mt-2 text-[11px] text-slate-400">
-                {form.scheduledAt
-                  ? `미리보기: ${toPreviewDateTime(form.scheduledAt)}`
-                  : "날짜와 시간을 선택하세요."}
+                날짜와 시간을 선택하세요.
               </p>
             </div>
 

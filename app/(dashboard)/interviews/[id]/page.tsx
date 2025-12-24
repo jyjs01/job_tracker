@@ -4,118 +4,15 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import axios, { AxiosError } from "axios";
-
 import Button from "@/src/components/ui/Button";
 import Input from "@/src/components/ui/Input";
 import FilterSelect from "@/src/components/ui/FilterSelect";
-
-type InterviewStatus = "예정" | "합격" | "불합격";
-
-type InterviewRow = {
-  id: string;
-  userId: string;
-  jobPostingId: string;
-  applicationId: string;
-  type: string;
-  scheduledAt: string | null;
-  location: string | null;
-  status: InterviewStatus;
-  memo: string | null;
-  createdAt: string;
-  updatedAt: string;
-};
-
-type JobPostingDetail = {
-  id: string;
-  title?: string | null;
-  position?: string | null;
-  companyName?: string | null;
-  url?: string | null;
-};
-
-type ApplicationDetail = {
-  id: string;
-  status: string;
-  appliedAt: string | null;
-  memo: string | null;
-};
-
-type FieldErrors = Record<string, string[]>;
-type ApiErrorResponse = {
-  error?: string;
-  fieldErrors?: FieldErrors;
-  formErrors?: string[];
-  details?: {
-    fieldErrors?: FieldErrors;
-    formErrors?: string[];
-  };
-};
-
-function isRecord(v: unknown): v is Record<string, unknown> {
-  return typeof v === "object" && v !== null;
-}
-function isStringArray(v: unknown): v is string[] {
-  return Array.isArray(v) && v.every((x) => typeof x === "string");
-}
-function isFieldErrors(v: unknown): v is FieldErrors {
-  if (!isRecord(v)) return false;
-  return Object.values(v).every((arr) => isStringArray(arr));
-}
-function pickErrorMessage(data: unknown): string {
-  if (!isRecord(data)) return "오류가 발생했습니다.";
-
-  if (typeof data.error === "string" && data.error.trim()) return data.error;
-
-  if (isFieldErrors(data.fieldErrors)) {
-    const firstKey = Object.keys(data.fieldErrors)[0];
-    const firstMsg = firstKey ? data.fieldErrors[firstKey]?.[0] : undefined;
-    if (firstMsg) return firstMsg;
-  }
-
-  if (isStringArray(data.formErrors) && data.formErrors[0]) return data.formErrors[0];
-
-  const details = data.details;
-  if (isRecord(details)) {
-    if (isFieldErrors(details.fieldErrors)) {
-      const firstKey = Object.keys(details.fieldErrors)[0];
-      const firstMsg = firstKey ? details.fieldErrors[firstKey]?.[0] : undefined;
-      if (firstMsg) return firstMsg;
-    }
-    if (isStringArray(details.formErrors) && details.formErrors[0]) return details.formErrors[0];
-  }
-
-  return "오류가 발생했습니다.";
-}
-
-function pad2(n: number) {
-  return String(n).padStart(2, "0");
-}
-
-function toDateTimeLocalValue(iso: string | null) {
-  if (!iso) return "";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "";
-  // datetime-local 은 로컬 기준 "YYYY-MM-DDTHH:mm"
-  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}T${pad2(
-    d.getHours()
-  )}:${pad2(d.getMinutes())}`;
-}
-
-function toServerIso(datetimeLocal: string) {
-  if (!datetimeLocal) return null;
-  const d = new Date(datetimeLocal);
-  if (Number.isNaN(d.getTime())) return null;
-  return d.toISOString();
-}
-
-function formatKSTLike(iso: string | null) {
-  if (!iso) return "-";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "-";
-  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())} ${pad2(
-    d.getHours()
-  )}:${pad2(d.getMinutes())}`;
-}
+import type { JobPostingListItem } from "@/src/types/jobPostings";
+import type { ApplicationListItem } from "@/src/types/applications";
+import type { InterviewStatus, InterviewRow } from "@/src/types/interviews";
+import type { ApiErrorResponse } from "@/src/types/error";
+import { pickErrorMessage } from "@/src/utils/error";
+import { formatDateTime, toServerIso } from "@/src/utils/interviews";
 
 const TYPE_PRESETS = [
   "1차 면접",
@@ -143,8 +40,8 @@ export default function InterviewDetailPage() {
 
   const [interview, setInterview] = useState<InterviewRow | null>(null);
 
-  const [jobPosting, setJobPosting] = useState<JobPostingDetail | null>(null);
-  const [application, setApplication] = useState<ApplicationDetail | null>(null);
+  const [jobPosting, setJobPosting] = useState<JobPostingListItem | null>(null);
+  const [application, setApplication] = useState<ApplicationListItem | null>(null);
 
   const [type, setType] = useState("");
   const [scheduledAtLocal, setScheduledAtLocal] = useState(""); // datetime-local
@@ -154,12 +51,13 @@ export default function InterviewDetailPage() {
 
   const hydrateForm = (row: InterviewRow) => {
     setType(row.type ?? "");
-    setScheduledAtLocal(toDateTimeLocalValue(row.scheduledAt));
+    setScheduledAtLocal(formatDateTime(row.scheduledAt));
     setLocation(row.location ?? "");
     setStatus(row.status);
     setMemo(row.memo ?? "");
   };
 
+  // 면접/과제 일정 불러오기
   const fetchInterview = async () => {
     if (!interviewId || interviewId === "undefined") return;
 
@@ -210,6 +108,7 @@ export default function InterviewDetailPage() {
     setIsEditing(false);
   };
 
+  // 수정
   const onSave = async () => {
     if (!interviewId || interviewId === "undefined") return;
     if (!canSave || saving) return;
@@ -242,6 +141,7 @@ export default function InterviewDetailPage() {
     }
   };
 
+  // 삭제
   const onDelete = async () => {
     if (!interviewId || interviewId === "undefined") return;
     if (deleting) return;
@@ -409,9 +309,6 @@ export default function InterviewDetailPage() {
                     disabled={!isEditing}
                     className="mt-2 disabled:bg-slate-50 disabled:text-slate-700"
                   />
-                  <p className="mt-2 text-[11px] text-slate-400">
-                    {scheduledAtLocal ? `미리보기: ${formatKSTLike(toServerIso(scheduledAtLocal))}` : "날짜/시간을 선택하세요."}
-                  </p>
                 </div>
 
                 {/* 상태 */}
@@ -440,11 +337,6 @@ export default function InterviewDetailPage() {
                     disabled={!isEditing}
                     className="mt-2 disabled:bg-slate-50 disabled:text-slate-700"
                   />
-                  {!isEditing && (
-                    <p className="mt-2 text-[11px] text-slate-400">
-                      {interview.location ? "링크/주소를 클릭해서 복사하거나 열어보세요." : "장소 정보가 없습니다."}
-                    </p>
-                  )}
                 </div>
 
                 {/* 메모 */}
