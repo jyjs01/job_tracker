@@ -1,5 +1,6 @@
-import type { DeadlineFilter, FieldErrors } from "@/src/types/jobPostings";
+import type { DeadlineFilter } from "@/src/types/jobPostings";
 import type { ApplicationStatus } from "@/src/types/applications";
+import type { FieldErrors } from "@/src/types/error";
 
 export function formatDate(value?: string | Date) {
   if (!value) return "-";

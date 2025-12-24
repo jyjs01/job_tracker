@@ -5,16 +5,11 @@ import { useParams, useRouter } from "next/navigation";
 import axios, { AxiosError } from "axios";
 import Link from "next/link";
 import Button from "@/src/components/ui/Button";
-import type { JobPostingWithId, ApiErrorResponse } from "@/src/types/jobPostings";
+import type { JobPostingWithId } from "@/src/types/jobPostings";
 import type { ApplicationRow } from "@/src/types/applications";
 import type { InterviewRow } from "@/src/types/interviews";
-import { formatDate, 
-  pickErrorMessage, 
-  dueInText, 
-  statusDot, 
-  formatDateTime, 
-  inferDotColor } 
-from "@/src/utils/jobPostings";
+import type { ApiErrorResponse } from "@/src/types/error";
+import { formatDate, pickErrorMessage, dueInText, statusDot, formatDateTime, inferDotColor } from "@/src/utils/jobPostings";
 
 export default function JobPostingDetailPage() {
   const params = useParams<{ id: string }>();

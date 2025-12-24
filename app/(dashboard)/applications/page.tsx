@@ -3,16 +3,9 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import axios from "axios";
+import type { JobPostingListItem } from "@/src/types/jobPostings";
 import type { ApplicationRow, ApplicationStatus } from "@/src/types/applications";
-
-type JobPostingApiRow = {
-  id?: string;
-  _id?: string;
-  company_name?: string;
-  companyName?: string;
-  position?: string;
-  title?: string;
-};
+import { getInitial, badgeClass } from "@/src/utils/applications";
 
 type ApplicationListRow = Pick<ApplicationRow, "id" | "status" | "appliedAt"> & {
   companyName: string;
@@ -29,44 +22,17 @@ const STATUS_TABS: Array<"전체" | ApplicationStatus> = [
   "불합격",
 ];
 
-const PAGE_SIZE = 5;
-
-function getInitial(name: string) {
-  const trimmed = name.trim();
-  if (!trimmed) return "?";
-  return trimmed[0].toUpperCase();
-}
-
-function badgeClass(status: ApplicationStatus) {
-  const base =
-    "inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-medium";
-  switch (status) {
-    case "준비":
-      return `${base} border-slate-200 bg-slate-50 text-slate-700`;
-    case "지원 완료":
-      return `${base} border-slate-200 bg-white text-slate-700`;
-    case "서류 합격":
-      return `${base} border-emerald-200 bg-emerald-50 text-emerald-700`;
-    case "면접 진행":
-      return `${base} border-blue-200 bg-blue-50 text-blue-700`;
-    case "합격":
-      return `${base} border-purple-200 bg-purple-50 text-purple-700`;
-    case "불합격":
-      return `${base} border-rose-200 bg-rose-50 text-rose-700`;
-    default:
-      return `${base} border-slate-200 bg-white text-slate-700`;
-  }
-}
-
 export default function ApplicationsPage() {
   const [status, setStatus] = useState<(typeof STATUS_TABS)[number]>("전체");
   const [keyword, setKeyword] = useState("");
   const [page, setPage] = useState(1);
+  const PAGE_SIZE = 5;
 
   const [rows, setRows] = useState<ApplicationListRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+  // 지원 이력 불러오기
   const fetchRows = async () => {
     try {
       setLoading(true);
@@ -78,24 +44,17 @@ export default function ApplicationsPage() {
       ]);
 
       const applications = (appsRes.data?.data ?? []) as ApplicationRow[];
-      const jobPostings = (postingsRes.data?.data ?? []) as JobPostingApiRow[];
+      const jobPostings = (postingsRes.data?.data ?? []) as JobPostingListItem[];
 
-      const postingMap = new Map<string, JobPostingApiRow>();
+      const postingMap = new Map<string, JobPostingListItem>();
       for (const jp of jobPostings) {
-        const id = String(jp.id ?? jp._id ?? "");
-        if (!id) continue;
-        postingMap.set(id, jp);
+        postingMap.set(jp.id, jp);
       }
 
       const merged: ApplicationListRow[] = applications.map((app) => {
         const posting = postingMap.get(app.jobPostingId);
 
-        const companyName =
-          posting?.company_name ??
-          posting?.companyName ??
-          posting?.title ??
-          "회사명 미기입";
-
+        const companyName = posting?.companyName ?? "회사명 미기입";
         const position = posting?.position ?? "-";
 
         return {

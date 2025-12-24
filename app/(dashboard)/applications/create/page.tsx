@@ -4,32 +4,10 @@ import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import axios from "axios";
-
 import Button from "@/src/components/ui/Button";
 import FilterSelect from "@/src/components/ui/FilterSelect";
-
-type ApplicationStatus =
-  | "준비"
-  | "지원 완료"
-  | "서류 합격"
-  | "면접 진행"
-  | "합격"
-  | "불합격";
-
-type JobPostingRow = {
-  id?: string;
-  _id?: string;
-  company_name?: string;
-  companyName?: string;
-  position?: string;
-  title?: string;
-};
-
-type JobPostingOption = {
-  id: string;
-  companyName: string;
-  position: string;
-};
+import type { JobPostingListItem } from "@/src/types/jobPostings";
+import type { ApplicationStatus } from "@/src/types/applications";
 
 const STATUS_OPTIONS: ApplicationStatus[] = [
   "준비",
@@ -43,7 +21,7 @@ const STATUS_OPTIONS: ApplicationStatus[] = [
 export default function ApplicationCreatePage() {
   const router = useRouter();
 
-  const [jobPostings, setJobPostings] = useState<JobPostingOption[]>([]);
+  const [jobPostings, setJobPostings] = useState<JobPostingListItem[]>([]);
   const [postingsLoading, setPostingsLoading] = useState(true);
   const [postingsError, setPostingsError] = useState<string | null>(null);
 
@@ -55,26 +33,26 @@ export default function ApplicationCreatePage() {
   const [submitLoading, setSubmitLoading] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
+  // 채용 공고 불러오기
   const fetchJobPostings = async () => {
     try {
       setPostingsLoading(true);
       setPostingsError(null);
 
       const res = await axios.get("/api/job-postings");
-      const data = (res.data?.data ?? []) as JobPostingRow[];
+      const data = (res.data?.data ?? []) as JobPostingListItem[];
 
-      const mapped: JobPostingOption[] = data
+      const mapped: JobPostingListItem[] = data
         .map((jp) => {
-          const id = String(jp.id ?? jp._id ?? "");
+          const id = String(jp.id ?? "");
           if (!id) return null;
 
-          const companyName =
-            jp.company_name ?? jp.companyName ?? jp.title ?? "회사명 미기입";
+          const companyName = jp.companyName ?? "회사명 미기입";
           const position = jp.position ?? "-";
 
           return { id, companyName, position };
         })
-        .filter(Boolean) as JobPostingOption[];
+        .filter(Boolean) as JobPostingListItem[];
 
       setJobPostings(mapped);
 
@@ -108,7 +86,7 @@ export default function ApplicationCreatePage() {
     jobPostings.length > 0 &&
     !submitLoading;
 
-    const onSubmit = async (e: React.FormEvent) => {
+  const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!canSubmit) return;

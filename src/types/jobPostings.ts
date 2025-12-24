@@ -65,22 +65,11 @@ export type JobPostingDTO = {
   updatedAt?: string;
 };
 
-// 목록 화면에서 쓸 “얇은 타입”
+// 얇은 타입
 export type JobPostingListItem = Pick<
   JobPostingDTO,
-  "id" | "title" | "companyName" | "position" | "employmentType" | "source" | "location" | "dueDate"
+  "id" | "title" | "companyName" | "position" | "employmentType" | "source" | "location" | "dueDate" | "url"
 >;
 
 export type DeadlineFilter = "전체" | "마감 지남" | "마감 임박" | "여유 있음";
 export type SourceFilter = "전체" | "사람인" | "잡코리아" | "회사 채용 홈페이지";
-
-export type FieldErrors = Record<string, string[]>;
-export type ApiErrorResponse = {
-  error?: string;
-  fieldErrors?: FieldErrors;
-  formErrors?: string[];
-  details?: {
-    fieldErrors?: FieldErrors;
-    formErrors?: string[];
-  };
-};

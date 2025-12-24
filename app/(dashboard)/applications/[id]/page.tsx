@@ -4,51 +4,14 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import axios, { AxiosError } from "axios";
-
+import type { JobPostingListItem } from "@/src/types/jobPostings";
 import type { ApplicationRow, ApplicationStatus } from "@/src/types/applications";
+import type { InterviewRow } from "@/src/types/interviews";
+import type { ApiErrorResponse } from "@/src/types/error";
+import { badgeClass, statusBadgeStyle, formatDate, formatDateTime, pickErrorMessage } from "@/src/utils/applications";
 import Button from "@/src/components/ui/Button";
 import FilterSelect from "@/src/components/ui/FilterSelect";
 import Input from "@/src/components/ui/Input";
-
-type JobPostingApiRow = {
-  id?: string;
-  _id?: string;
-  company_name?: string;
-  companyName?: string;
-  position?: string;
-  title?: string;
-  url?: string;
-};
-
-type InterviewStatus = "예정" | "합격" | "불합격";
-
-type InterviewRow = {
-  id: string;
-  userId: string;
-  jobPostingId: string;
-  applicationId: string;
-
-  type: string;
-  scheduledAt: string | null;
-  location: string | null;
-
-  status: InterviewStatus;
-  memo: string | null;
-
-  createdAt: string;
-  updatedAt: string;
-};
-
-type FieldErrors = Record<string, string[]>;
-type ApiErrorResponse = {
-  error?: string;
-  fieldErrors?: FieldErrors;
-  formErrors?: string[];
-  details?: {
-    fieldErrors?: FieldErrors;
-    formErrors?: string[];
-  };
-};
 
 const STATUS_OPTIONS: ApplicationStatus[] = [
   "준비",
@@ -59,75 +22,9 @@ const STATUS_OPTIONS: ApplicationStatus[] = [
   "불합격",
 ];
 
-function toDateInputValue(v: string | null) {
-  if (!v) return "";
-  return v.includes("T") ? v.slice(0, 10) : v;
-}
-
-function isRecord(v: unknown): v is Record<string, unknown> {
-  return typeof v === "object" && v !== null;
-}
-function isStringArray(v: unknown): v is string[] {
-  return Array.isArray(v) && v.every((x) => typeof x === "string");
-}
-function isFieldErrors(v: unknown): v is FieldErrors {
-  if (!isRecord(v)) return false;
-  return Object.values(v).every((arr) => isStringArray(arr));
-}
-
-function pickErrorMessage(data: unknown): string {
-  if (!isRecord(data)) return "오류가 발생했습니다.";
-
-  if (typeof data.error === "string" && data.error.trim()) return data.error;
-
-  if (isFieldErrors(data.fieldErrors)) {
-    const firstKey = Object.keys(data.fieldErrors)[0];
-    const firstMsg = firstKey ? data.fieldErrors[firstKey]?.[0] : undefined;
-    if (firstMsg) return firstMsg;
-  }
-
-  if (isStringArray(data.formErrors) && data.formErrors[0]) return data.formErrors[0];
-
-  const details = data.details;
-  if (isRecord(details)) {
-    if (isFieldErrors(details.fieldErrors)) {
-      const firstKey = Object.keys(details.fieldErrors)[0];
-      const firstMsg = firstKey ? details.fieldErrors[firstKey]?.[0] : undefined;
-      if (firstMsg) return firstMsg;
-    }
-    if (isStringArray(details.formErrors) && details.formErrors[0]) return details.formErrors[0];
-  }
-
-  return "오류가 발생했습니다.";
-}
-
-function pad2(n: number) {
-  return String(n).padStart(2, "0");
-}
-
-function formatDateTimeText(iso: string | null) {
-  if (!iso) return "일정 미정";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "일정 미정";
-  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())} ${pad2(
-    d.getHours()
-  )}:${pad2(d.getMinutes())}`;
-}
-
 function inferScheduleBadge(type: string) {
   // UI 라벨은 기존처럼 type 그대로(1차 면접/과제 제출/코딩테스트 등)
   return type;
-}
-
-function badgeStyle() {
-  return "inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-semibold text-slate-700";
-}
-
-function statusBadgeStyle(status: InterviewStatus) {
-  const base = "inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold";
-  if (status === "예정") return `${base} bg-slate-100 text-slate-700`;
-  if (status === "합격") return `${base} bg-emerald-50 text-emerald-700`;
-  return `${base} bg-rose-50 text-rose-700`;
 }
 
 export default function ApplicationDetailPage() {
@@ -152,6 +49,7 @@ export default function ApplicationDetailPage() {
   const [scheduleError, setScheduleError] = useState<string | null>(null);
   const [schedules, setSchedules] = useState<InterviewRow[]>([]);
 
+  // 지원 이력 상세 정보 불러오기
   const fetchDetail = async () => {
     if (!applicationId) return;
 
@@ -161,18 +59,18 @@ export default function ApplicationDetailPage() {
 
       const [appRes, postingsRes] = await Promise.all([
         axios.get<{ data: ApplicationRow }>(`/api/applications/${applicationId}`),
-        axios.get<{ data: JobPostingApiRow[] }>("/api/job-postings"),
+        axios.get<{ data: JobPostingListItem[] }>("/api/job-postings"),
       ]);
 
       const app = appRes.data.data;
       const jobPostings = postingsRes.data.data ?? [];
 
       const posting = jobPostings.find((jp) => {
-        const id = String(jp.id ?? jp._id ?? "");
+        const id = String(jp.id ?? "");
         return id === app.jobPostingId;
       });
 
-      const cName = posting?.company_name ?? posting?.companyName ?? "회사명 미기입";
+      const cName = posting?.companyName ?? "회사명 미기입";
       const pos = posting?.position ?? posting?.title ?? "-";
       const url = posting?.url ?? "";
 
@@ -181,7 +79,7 @@ export default function ApplicationDetailPage() {
       setJobUrl(url);
 
       setStatus(app.status);
-      setAppliedAt(toDateInputValue(app.appliedAt));
+      setAppliedAt(formatDate(app.appliedAt));
       setMemo(app.memo ?? "");
     } catch (err: unknown) {
       console.error("지원 상세 불러오기 오류:", err);
@@ -198,6 +96,7 @@ export default function ApplicationDetailPage() {
     }
   };
 
+  // 면접/과제 일정 불러오기
   const fetchSchedules = async () => {
     if (!applicationId) return;
 
@@ -239,8 +138,10 @@ export default function ApplicationDetailPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [applicationId]);
 
+  // 수정
   const onClickEdit = () => setIsEditing(true);
 
+  // 저장
   const onClickSave = async () => {
     if (!applicationId) return;
 
@@ -262,7 +163,7 @@ export default function ApplicationDetailPage() {
       const updated = res.data.data;
 
       setStatus(updated.status);
-      setAppliedAt(toDateInputValue(updated.appliedAt));
+      setAppliedAt(formatDate(updated.appliedAt));
       setMemo(updated.memo ?? "");
 
       setIsEditing(false);
@@ -273,6 +174,7 @@ export default function ApplicationDetailPage() {
     }
   };
 
+  // 삭제
   const onClickDelete = async () => {
     if (!applicationId) return;
     const ok = confirm("정말 삭제할까요?");
@@ -453,7 +355,7 @@ export default function ApplicationDetailPage() {
           </div>
         </section>
 
-        {/* ✅ 면접/과제 일정: API 로드 결과 표시 */}
+        {/* 면접/과제 일정 */}
         <section className="lg:col-span-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
           <div className="flex items-center justify-between">
             <div className="text-sm font-semibold text-slate-900">면접 및 과제 일정</div>
@@ -493,9 +395,9 @@ export default function ApplicationDetailPage() {
                   <div className="flex items-start justify-between gap-4">
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className={badgeStyle()}>{inferScheduleBadge(it.type)}</span>
+                        <span className={badgeClass(status)}>{inferScheduleBadge(it.type)}</span>
                         <span className="text-xs font-medium text-slate-500">
-                          {formatDateTimeText(it.scheduledAt)}
+                          {formatDateTime(it.scheduledAt)}
                         </span>
                         <span className={statusBadgeStyle(it.status)}>{it.status}</span>
                       </div>
