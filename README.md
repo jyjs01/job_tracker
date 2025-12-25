@@ -1,36 +1,38 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# JobTracker
 
-## Getting Started
+채용 공고 등록부터 지원 이력, 면접/과제 일정까지 한 곳에서 관리할 수 있는 **취업 준비 관리 웹 서비스**입니다.  
+직접 저장한 공고를 기반으로 “마감까지 D-day”, 진행 상태, 다가오는 일정 등을 대시보드에서 한눈에 확인할 수 있습니다.
 
-First, run the development server:
+## 링크
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+배포 예정
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## 주요 기능
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### 1) 채용 공고 관리
+- 공고 직접 등록/수정/삭제
+- 회사 정보 함께 관리 (회사명, 메모 등)
+- 공고 상세 화면에서 URL, 마감일, 포지션/근무형태/근무지, 메모 확인
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### 2) 지원 이력 관리
+- 공고별 지원 상태/단계 관리
+- 지원일, 메모 기록
 
-## Learn More
+### 3) 면접/과제 일정 관리
+- 면접/과제 일정 등록/수정/삭제
+- 상태(예정/합격/불합격 등)와 장소(오프라인/온라인) 관리
+- D-day 기반으로 다가오는 일정 확인
 
-To learn more about Next.js, take a look at the following resources:
+### 4) 대시보드
+- 마감 임박 공고 / 다가오는 면접 일정 요약 카드
+- 핵심 지표(예: 진행 중, 마감 임박 등) 확인
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## 기술 스택
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- **Frontend**: Next.js(App Router), React, TypeScript, Tailwind CSS
+- **Backend**: Next.js Route Handler(API Routes)
+- **Database**: MongoDB 
+- **Validation**: Zod (요청 데이터 검증)
+- **HTTP Client**: Axios
+- **Deployment**: Vercel
