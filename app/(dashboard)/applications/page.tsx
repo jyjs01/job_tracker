@@ -217,7 +217,7 @@ export default function ApplicationsPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-12 border-t border-slate-100 bg-slate-50 px-5 py-3 text-[11px] font-semibold text-slate-500">
+        <div className="hidden md:grid grid-cols-12 border-t border-slate-100 bg-slate-50 px-5 py-3 text-[11px] font-semibold text-slate-500">
           <div className="col-span-5">회사명</div>
           <div className="col-span-4">포지션</div>
           <div className="col-span-2">상태</div>
@@ -249,32 +249,44 @@ export default function ApplicationsPage() {
               <Link
                 key={r.id}
                 href={`/applications/${r.id}`}
-                className="grid grid-cols-12 items-center px-5 py-4 hover:bg-slate-50"
+                className="block px-5 py-4 hover:bg-slate-50 md:grid md:grid-cols-12 md:items-center"
               >
-                <div className="col-span-5 flex items-center gap-3">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-700 text-xs font-bold text-white">
-                    {getInitial(r.companyName)}
-                  </div>
-                  <div className="min-w-0">
-                    <div className="truncate text-sm font-semibold text-slate-900">
-                      {r.companyName}
+                <div className="flex items-center justify-between gap-3 md:col-span-5 md:justify-start">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-700 text-xs font-bold text-white">
+                      {getInitial(r.companyName)}
+                    </div>
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-semibold text-slate-900">
+                        {r.companyName}
+                      </div>
                     </div>
                   </div>
+
+                  <div className="md:hidden">
+                    <span className={`${badgeClass(r.status)} whitespace-nowrap`}>
+                      {r.status}
+                    </span>
+                  </div>
                 </div>
 
-                <div className="col-span-4 truncate text-sm font-medium text-slate-900">
-                  {r.position}
-                </div>
+                <div className="mt-2 flex items-center justify-between gap-3 md:col-span-7 md:mt-0 md:grid md:grid-cols-7 md:items-center">
+                  <div className="text-sm font-medium text-slate-900 md:col-span-4 md:truncate">
+                    {r.position}
+                  </div>
 
-                <div className="col-span-2">
-                  <span className={badgeClass(r.status)}>{r.status}</span>
-                </div>
+                  <div className="hidden md:block md:col-span-2">
+                    <span className={`${badgeClass(r.status)} whitespace-nowrap`}>
+                      {r.status}
+                    </span>
+                  </div>
 
-                <div className="col-span-1 flex items-center justify-end gap-3">
-                  <span className="text-sm text-slate-700">
-                    {r.appliedAt ?? "-"}
-                  </span>
-                  <span className="text-slate-300">›</span>
+                  <div className="flex items-center gap-3 md:col-span-1 md:justify-end">
+                    <span className="text-sm text-slate-700 whitespace-nowrap">
+                      {r.appliedAt ?? "-"}
+                    </span>
+                    <span className="text-slate-300 hidden md:inline">›</span>
+                  </div>
                 </div>
               </Link>
             ))
